@@ -25,9 +25,9 @@ def get_block(block_hash: bytes) -> Block:
 
 def validate_transaction(transaction: Transaction) -> bool:
     balance = transaction.balance_info
-    state = hashlib.sha256(transaction.sender.signature + transaction.sender.money)
+    state = hashlib.sha256(transaction.sender.signature + transaction.sender.money).digest()
     for salt in balance.verify_hashes:
-        state = hashlib.sha256(state + salt)
+        state = hashlib.sha256(state + salt).digest()
     return state == local_info.balance_root_hash and balance.coin_amount <= transaction.sender.money
 
 def validate_block(max_time: int, block_request: BlockRequest) -> bool:
