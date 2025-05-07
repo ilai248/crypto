@@ -39,7 +39,7 @@ def validate_block(max_time: int, block_request: BlockRequest) -> bool:
 
 def on_block_received(block: 'BlockRequest'):
     if validate_block(curr_max_time, block):
-        block = Block(block.index, block.prev_hash, block.proposer, block.balance_info, block.transactions, block.timestamp)
+        block = block.block
         if block.hash in BLOCKCHAIN and block.transactions != BLOCKCHAIN[block.hash].transactions:
             print("Bad Actor! Sending the ninjas...")
             # TODO: Send "Liar!" request

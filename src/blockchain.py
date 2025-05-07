@@ -61,12 +61,6 @@ class BlockRequest_heart:
         self.public_key: bytes = public_key
 
 class BlockRequest:
-    def __init__(self, heart, index, prev_hash, proposer, balance_info, transactions, signature, timestamp):
+    def __init__(self, heart, block):
         self.heart: 'BlockRequest_heart' = heart
-        self.index = index
-        self.prev_hash = prev_hash
-        self.proposer = proposer
-        self.balance_info: 'BalanceInfo' = balance_info
-        self.transactions = transactions  # list of Transaction
-        self.signature = signature
-        self.timestamp = timestamp
+        self.block = block
