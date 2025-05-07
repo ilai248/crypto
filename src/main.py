@@ -1,6 +1,6 @@
 import hashlib
 import sys, time, threading
-from blockchain import Block, Transaction
+from blockchain import Block, BlockRequest, Transaction
 from gossip import GossipNode
 
 class LocalInfo:
@@ -25,17 +25,17 @@ def get_block(block_hash: bytes) -> Block:
 
 def validate_transaction(transaction: Transaction) -> bool:
     balance = transaction.balance_info
-    state = ... # TODO: get initial state from tree at balance.balance_addr
+    state = hashlib.sha256(transaction.sender.signature + transaction.sender.money)
     for salt in balance.verify_hashes:
         state = hashlib.sha256(state + salt)
-    return state == local_info.balance_root_hash # TODO: also make sure the user has more than balance.coin_amount by querying the tree
+    return state == local_info.balance_root_hash and balance.coin_amount <= transaction.sender.money
 
-def validate_block(max_time: int, block: Block) -> bool:
-    transactions_ok = all(validate_transaction(t) for t in block.transactions)
-    timestamp_ok = get_block(block.prev_hash).timestamp <= block.timestamp <= max_time
+def validate_block(max_time: int, block_request: BlockRequest) -> bool:
+    transactions_ok = all(validate_transaction(t) for t in block_request.transactions)
+    timestamp_ok = get_block(block_request.prev_hash).timestamp <= block_request.timestamp <= max_time
     #heart_ok = ...
     #key_ok = ...
-    return parent_ok
+    #return parent_ok
 
 def on_block_received(block):
     if validate_block(block):
