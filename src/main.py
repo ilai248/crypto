@@ -25,15 +25,15 @@ def get_block(block_hash: bytes) -> Block:
 
 def validate_transaction(transaction: Transaction) -> bool:
     balance = transaction.balance_info
-    state = hashlib.sha256(transaction.sender.signature + transaction.sender.money).digest()
+    state = hashlib.sha256(transaction.public_key + transaction.sender.money).digest()
     for salt in balance.verify_hashes:
         state = hashlib.sha256(state + salt).digest()
-    return state == local_info.balance_root_hash and balance.coin_amount <= transaction.sender.money
+    return state == local_info.balance_root_hash and 0 <= balance.coin_amount <= transaction.sender.money
 
 def validate_block(max_time: int, block_request: BlockRequest) -> bool:
-    transactions_ok = all(validate_transaction(t) for t in block_request.transactions)
+    transactions_ok = all(validate_transaction(t) and t.expiration <= block_request.index for t in block_request.transactions)
     timestamp_ok = get_block(block_request.prev_hash).timestamp <= block_request.timestamp <= max_time
-    #heart_ok = ...
+    #heart_ok = hashlib.sha256(block_request.)
     #key_ok = ...
     #return parent_ok
 
