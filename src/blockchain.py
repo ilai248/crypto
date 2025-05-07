@@ -5,10 +5,10 @@ TRANSACTION_EXPIRATION = 1000
 LOCAL_CHAIN_SIZE = TRANSACTION_EXPIRATION*2
 
 class BalanceInfo:
-    balance_root_hash: bytes
-    verify_hashes: List[bytes]
-    balance_addr: int
-    coint_amount: int
+    def __init__(self, verify_hashes, balance_addr, coin_amount):
+        self.verify_hashes: List[bytes] = verify_hashes
+        self.balance_addr: int = balance_addr
+        self.coin_amount: int = coin_amount
 
 class Transaction:
     def __init__(self, sender, receiver, amount, signature, expiration=TRANSACTION_EXPIRATION):

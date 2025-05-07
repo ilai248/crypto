@@ -2,6 +2,10 @@ import sys, time, threading
 from blockchain import Block, Transaction
 from gossip import GossipNode
 
+class LocalInfo:
+    def __init__(self, balance_root_hash):
+        self.balance_root_hash: bytes = balance_root_hash
+
 PEER_PORTS = {
     "1": [("127.0.0.1", 5001)],
     "2": [("127.0.0.1", 5000)]
@@ -11,6 +15,7 @@ BLOCKCHAIN = []
 
 TIME_INTERVAL_MS = 1000
 curr_max_time = TIME_INTERVAL_MS # The first round will end in exactly 1 second from the launch.
+local_info: LocalInfo = LocalInfo()
 
 def get_block(block_hash: bytes) -> Block:
     # TODO: ...
