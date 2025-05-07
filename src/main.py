@@ -1,3 +1,4 @@
+import hashlib
 import sys, time, threading
 from blockchain import Block, Transaction
 from gossip import GossipNode
@@ -18,10 +19,15 @@ curr_max_time = TIME_INTERVAL_MS # The first round will end in exactly 1 second 
 local_info: LocalInfo = LocalInfo()
 
 def get_block(block_hash: bytes) -> Block:
-    # TODO: ...
+    # TODO: implement
+    raise NotImplementedError()
 
 def validate_transaction(transaction: Transaction) -> bool:
-    return True
+    balance = transaction.balance_info
+    state = ... # TODO: get initial state from tree at balance.balance_addr
+    for salt in balance.verify_hashes:
+        state = hashlib.sha256(state + salt)
+    return state == local_info.balance_root_hash # TODO: also make sure the user has more than balance.coin_amount by querying the tree
 
 def validate_block(max_time: int, block: Block) -> bool:
     parent_ok = len(BLOCKCHAIN) == 0 or block.prev_hash == BLOCKCHAIN[-1].hash
