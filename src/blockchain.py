@@ -36,7 +36,7 @@ class Block:
         self.hash = self.compute_hash()
 
     def compute_hash(self):
-        block_string = f"{self.index}{self.prev_hash}{self.proposer}{self.timestamp}{[tx.to_dict() for tx in self.transactions]}"
+        block_string = f"{self.index}|{self.prev_hash}|{self.proposer}|{self.timestamp}|{[tx.to_dict() for tx in self.transactions]}"
         return hashlib.sha256(block_string.encode()).hexdigest()
 
     def to_dict(self):
@@ -59,6 +59,9 @@ class BlockRequest_heart:
     def __init__(self, timestamp: int, public_key):
         self.timestamp: int = timestamp
         self.public_key: bytes = public_key
+
+    def compute_hash(self):
+        return hashlib.sha256(f"{self.timestamp}|{self.public_key}".encode()).hexdigest()
 
 class BlockRequest:
     def __init__(self, heart, block):
