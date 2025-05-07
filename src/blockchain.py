@@ -1,10 +1,15 @@
 import time, hashlib, json
 
+TRANSACTION_EXPIRATION = 1000
+LOCAL_CHAIN_SIZE = TRANSACTION_EXPIRATION*2
+
 class Transaction:
-    def __init__(self, sender, receiver, amount):
+    def __init__(self, sender, receiver, amount, signature, expiration=TRANSACTION_EXPIRATION):
         self.sender = sender
         self.receiver = receiver
         self.amount = amount
+        self.expiration = expiration
+        self.signature = signature
 
     def to_dict(self):
         return {"sender": self.sender, "receiver": self.receiver, "amount": self.amount}

@@ -9,8 +9,25 @@ PEER_PORTS = {
 
 BLOCKCHAIN = []
 
+TIME_INTERVAL_MS = 1000
+curr_max_time = TIME_INTERVAL_MS # The first round will end in exactly 1 second from the launch.
+
+def get_block(block_hash: bytes) -> Block:
+    # TODO: ...
+
+def validate_transaction(transaction: Transaction) -> bool:
+    return True
+
+def validate_block(max_time: int, block: Block) -> bool:
+    parent_ok = len(BLOCKCHAIN) == 0 or block.prev_hash == BLOCKCHAIN[-1].hash
+    transactions_ok = all(validate_transaction(t) for t in block.transactions)
+    timestamp_ok = get_block(block.prev_hash).timestamp <= block.timestamp <= max_time
+    #heart_ok = ...
+    #key_ok = ...
+    return parent_ok
+
 def on_block_received(block):
-    if len(BLOCKCHAIN) == 0 or block.prev_hash == BLOCKCHAIN[-1].hash:
+    if validate_block(block):
         BLOCKCHAIN.append(block)
         print(f"[CHAIN LENGTH] {len(BLOCKCHAIN)}")
     else:
