@@ -11,22 +11,27 @@ class BalanceInfo:
         self.coin_amount: int = coin_amount
 
 class Transaction:
-    def __init__(self, sender, receiver, amount, signature, blocks_till_expire=TRANSACTION_EXPIRATION, curr_block_index: int):
+    def __init__(self, sender, receiver, amount, public_key, signature, balance, curr_block_index, blocks_till_expire=TRANSACTION_EXPIRATION):
         self.sender = sender
         self.receiver = receiver
         self.amount = amount
+        self.public_key = public_key
         self.expiration = curr_block_index + blocks_till_expire
+        self.balance_info: BalanceInfo = balance
         self.signature = signature
 
     def to_dict(self):
         return {"sender": self.sender, "receiver": self.receiver, "amount": self.amount}
 
+# TODO: Add balance_info
 class Block:
-    def __init__(self, index, prev_hash, proposer, transactions, timestamp=None):
+    def __init__(self, index, prev_hash, proposer, balance_info, transactions, signature, timestamp=None):
         self.index = index
         self.prev_hash = prev_hash
         self.proposer = proposer
+        self.balance_info: 'BalanceInfo' = balance_info
         self.transactions = transactions  # list of Transaction
+        self.signature = signature
         self.timestamp = timestamp or time.time()
         self.hash = self.compute_hash()
 
@@ -56,9 +61,6 @@ class BlockRequest_heart:
         self.public_key: bytes = public_key
 
 class BlockRequest:
-    def __init__(self, heart, prev_hash, proposer, transactions, signature):
+    def __init__(self, heart, block):
         self.heart: 'BlockRequest_heart' = heart
-        self.prev_hash = prev_hash
-        self.proposer = proposer
-        self.transactions = transactions  # list of Transaction
-        self.signature = signature
+        self.block = block
