@@ -38,3 +38,16 @@ class Block:
         blk = Block(data["index"], data["prev_hash"], data["proposer"], txs, data["timestamp"])
         blk.hash = data["hash"]
         return blk
+
+class BlockRequest_heart:
+    def __init__(self, timestamp: int, public_key):
+        self.timestamp: int = timestamp
+        self.public_key: bytes = public_key
+
+class BlockRequest:
+    def __init__(self, heart, prev_hash, proposer, transactions, signature):
+        self.heart: 'BlockRequest_heart' = heart
+        self.prev_hash = prev_hash
+        self.proposer = proposer
+        self.transactions = transactions  # list of Transaction
+        self.signature = signature
