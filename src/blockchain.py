@@ -56,11 +56,12 @@ class Block:
         return blk
 
 class BlockRequest_heart:
-    def __init__(self, timestamp: int, public_key):
+    def __init__(self, timestamp: int, public_key: bytes):
         self.timestamp: int = timestamp
         self.public_key: bytes = public_key
 
 class BlockRequest:
-    def __init__(self, heart, block):
+    def __init__(self, heart: BlockRequest_heart, difficulty_factor: int, block: Block):
         self.heart: 'BlockRequest_heart' = heart
+        self.difficulty_factor = difficulty_factor
         self.block = block
