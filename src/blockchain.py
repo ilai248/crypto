@@ -11,12 +11,13 @@ class BalanceInfo:
         self.coin_amount: int = coin_amount
 
 class Transaction:
-    def __init__(self, sender, receiver, amount, signature, expiration=TRANSACTION_EXPIRATION):
+    def __init__(self, sender, receiver, amount, signature, balance, expiration=TRANSACTION_EXPIRATION):
         self.sender = sender
         self.receiver = receiver
         self.amount = amount
         self.expiration = expiration
         self.signature = signature
+        self.balance_info: BalanceInfo = balance
 
     def to_dict(self):
         return {"sender": self.sender, "receiver": self.receiver, "amount": self.amount}
