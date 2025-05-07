@@ -5,9 +5,9 @@ class virt_bin_heap:
     def hashes(data):
         return sha256(data.encode()).hexdigest()
 
-    def __init__(self):
-        self.n = 0
-        self.roots = []
+    def __init__(self, n=0, roots=[]):
+        self.n = n
+        self.roots = roots
 
     def insert(self, data):
         """roots is sorted s.t. roots[0] represents the biggest tree"""
