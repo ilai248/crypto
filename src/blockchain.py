@@ -51,7 +51,7 @@ class Block:
     @staticmethod
     def from_dict(data):
         txs = [Transaction(**tx) for tx in data["transactions"]]
-        blk = Block(data["index"], data["prev_hash"], data["proposer"], txs, data["timestamp"])
+        blk = Block(data["index"], data["prev_hash"], data["proposer"], txs, data["signature"], data["timestamp"])
         blk.hash = data["hash"]
         return blk
 
