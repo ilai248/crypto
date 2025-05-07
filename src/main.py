@@ -11,8 +11,8 @@ PEER_PORTS = {
     "2": [("127.0.0.1", 5000)]
 }
 
-BLOCKCHAIN = []
-BLOCK_HASH_TO_ID = {}
+BLOCKCHAIN = {}
+last_hash  = b""
 
 TIME_INTERVAL_MS = 1000
 curr_max_time = TIME_INTERVAL_MS # The first round will end in exactly 1 second from the launch.
@@ -33,11 +33,39 @@ def validate_block(max_time: int, block: Block) -> bool:
 
 def on_block_received(block):
     if validate_block(block):
+        if block.hash in BLOCKCHAIN and block.transactions != BLOCKCHAIN[block.hash].transactions:
+            print("Bad Actor! Sending the ninjas...")
+            # TODO: Send "Liar!" request
+            # TODO: Send the ninjas.
+
         if len(BLOCKCHAIN) == 0 or block.prev_hash == BLOCKCHAIN[-1].hash:
-            BLOCK_HASH_TO_ID[block.hash] = len(BLOCKCHAIN)
-            BLOCKCHAIN.append(block)
+            BLOCKCHAIN[block.hash] = block
         else:
-            while block not in 
+            original_block = block
+            stake = blockchain_stake = 0
+
+            # Go up to forking point while collecting stake.
+            while block.hash not in BLOCKCHAIN:
+                stake += block.balance_info.coin_amount
+                block = get_block(block.prev_hash) # TODO: Make sure it exists.
+
+            # Collect the stake of our main chain up to the forking point.
+            curr_block = BLOCKCHAIN[last_hash]
+            while curr_block.hash != block.hash:
+                blockchain_stake += curr_block.balance_info.coin_amount
+                curr_block = BLOCKCHAIN[curr_block.prev_hash]
+            
+            if stake > blockchain_stake:
+                # Delete the main chain up to the fork.
+                block_to_del = BLOCKCHAIN[last_hash]
+                while block_to_del.hash != block.hash:
+                    del BLOCKCHAIN[block_to_del.hash]
+                    block_to_del = BLOCKCHAIN[block_to_del.prev_hash]
+                
+                # Concat the suggested chain to our main chain.
+                while original_block.hash != block.hash:
+                    BLOCKCHAIN[original_block.hash] = original_block
+                    original_block = BLOCKCHAIN[original_block.prev_hash]
         print(f"[CHAIN LENGTH] {len(BLOCKCHAIN)}")
     else:
         print("[FORK or STALE BLOCK] Ignored")
@@ -52,21 +80,22 @@ def start_node(node_id):
     # Genesis block
     if not BLOCKCHAIN:
         genesis = Block(0, "0", "genesis", [])
-        BLOCKCHAIN.append(genesis)
+        BLOCKCHAIN[genesis.hash] = genesis
+        last_hash = genesis.hash
 
-    # Block proposer simulation
+    # Block proposer simulation (TODO: Change).
     def proposer_loop():
         while True:
             time.sleep(10)
             tx = Transaction("node" + node_id, "receiver", 1.0)
             new_block = Block(
                 index=len(BLOCKCHAIN),
-                prev_hash=BLOCKCHAIN[-1].hash,
+                prev_hash=last_hash,
                 proposer=f"node{node_id}",
                 transactions=[tx]
             )
-            BLOCKCHAIN.append(new_block)
-            BLOCK_HASH_TO_ID[block.hash] = len(BLOCKCHAIN)
+            BLOCKCHAIN[new_block.hash] = new_block
+            last_hash = new_block.hash
             gossip.broadcast_block(new_block)
             print(f"[SENT BLOCK] {new_block.hash[:10]}")
 

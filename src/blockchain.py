@@ -21,11 +21,13 @@ class Transaction:
     def to_dict(self):
         return {"sender": self.sender, "receiver": self.receiver, "amount": self.amount}
 
+# TODO: Add balance_info
 class Block:
-    def __init__(self, index, prev_hash, proposer, transactions, timestamp=None):
+    def __init__(self, index, prev_hash, proposer, balance_info, transactions, timestamp=None):
         self.index = index
         self.prev_hash = prev_hash
         self.proposer = proposer
+        self.balance_info: 'BalanceInfo' = balance_info
         self.transactions = transactions  # list of Transaction
         self.timestamp = timestamp or time.time()
         self.hash = self.compute_hash()
