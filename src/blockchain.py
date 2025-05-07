@@ -1,7 +1,14 @@
 import time, hashlib, json
+from typing import List
 
 TRANSACTION_EXPIRATION = 1000
 LOCAL_CHAIN_SIZE = TRANSACTION_EXPIRATION*2
+
+class BalanceInfo:
+    balance_root_hash: bytes
+    verify_hashes: List[bytes]
+    balance_addr: int
+    coint_amount: int
 
 class Transaction:
     def __init__(self, sender, receiver, amount, signature, expiration=TRANSACTION_EXPIRATION):
