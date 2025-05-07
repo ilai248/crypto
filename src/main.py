@@ -12,6 +12,7 @@ PEER_PORTS = {
 }
 
 BLOCKCHAIN = []
+BLOCK_HASH_TO_ID = {}
 
 TIME_INTERVAL_MS = 1000
 curr_max_time = TIME_INTERVAL_MS # The first round will end in exactly 1 second from the launch.
@@ -24,7 +25,6 @@ def validate_transaction(transaction: Transaction) -> bool:
     return True
 
 def validate_block(max_time: int, block: Block) -> bool:
-    parent_ok = len(BLOCKCHAIN) == 0 or block.prev_hash == BLOCKCHAIN[-1].hash
     transactions_ok = all(validate_transaction(t) for t in block.transactions)
     timestamp_ok = get_block(block.prev_hash).timestamp <= block.timestamp <= max_time
     #heart_ok = ...
@@ -33,10 +33,15 @@ def validate_block(max_time: int, block: Block) -> bool:
 
 def on_block_received(block):
     if validate_block(block):
-        BLOCKCHAIN.append(block)
+        if len(BLOCKCHAIN) == 0 or block.prev_hash == BLOCKCHAIN[-1].hash:
+            BLOCK_HASH_TO_ID[block.hash] = len(BLOCKCHAIN)
+            BLOCKCHAIN.append(block)
+        else:
+            while block not in 
         print(f"[CHAIN LENGTH] {len(BLOCKCHAIN)}")
     else:
         print("[FORK or STALE BLOCK] Ignored")
+
 
 def start_node(node_id):
     port = 5000 if node_id == "1" else 5001
@@ -61,6 +66,7 @@ def start_node(node_id):
                 transactions=[tx]
             )
             BLOCKCHAIN.append(new_block)
+            BLOCK_HASH_TO_ID[block.hash] = len(BLOCKCHAIN)
             gossip.broadcast_block(new_block)
             print(f"[SENT BLOCK] {new_block.hash[:10]}")
 

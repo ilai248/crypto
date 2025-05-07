@@ -1,7 +1,7 @@
 import time, hashlib, json
 from typing import List
 
-TRANSACTION_EXPIRATION = 1000
+TRANSACTION_EXPIRATION = 100
 LOCAL_CHAIN_SIZE = TRANSACTION_EXPIRATION*2
 
 class BalanceInfo:
@@ -11,11 +11,11 @@ class BalanceInfo:
         self.coin_amount: int = coin_amount
 
 class Transaction:
-    def __init__(self, sender, receiver, amount, signature, expiration=TRANSACTION_EXPIRATION):
+    def __init__(self, sender, receiver, amount, signature, blocks_till_expire=TRANSACTION_EXPIRATION, curr_block_index: int):
         self.sender = sender
         self.receiver = receiver
         self.amount = amount
-        self.expiration = expiration
+        self.expiration = curr_block_index + blocks_till_expire
         self.signature = signature
 
     def to_dict(self):
@@ -36,7 +36,6 @@ class Block:
 
     def to_dict(self):
         return {
-            "index": self.index,
             "prev_hash": self.prev_hash,
             "proposer": self.proposer,
             "transactions": [tx.to_dict() for tx in self.transactions],
