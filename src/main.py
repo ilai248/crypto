@@ -1,6 +1,6 @@
 import hashlib
 import sys, time, threading
-from blockchain import Block, BlockRequest, Transaction
+from blockchain import Block, Transaction, BlockRequest, BlockRequest_heart
 from gossip import GossipNode
 
 class LocalInfo:
@@ -37,12 +37,14 @@ def validate_block(max_time: int, block_request: BlockRequest) -> bool:
     #key_ok = ...
     #return parent_ok
 
-def on_block_received(block):
-    if validate_block(block):
+def on_block_received(block: 'BlockRequest'):
+    if validate_block(curr_max_time, block):
+        block = Block(block.index, block.prev_hash, block.proposer, block.balance_info, block.transactions, block.timestamp)
         if block.hash in BLOCKCHAIN and block.transactions != BLOCKCHAIN[block.hash].transactions:
             print("Bad Actor! Sending the ninjas...")
             # TODO: Send "Liar!" request
             # TODO: Send the ninjas.
+            return
 
         if len(BLOCKCHAIN) == 0 or block.prev_hash == BLOCKCHAIN[-1].hash:
             BLOCKCHAIN[block.hash] = block
@@ -95,7 +97,7 @@ def start_node(node_id):
             time.sleep(10)
             tx = Transaction("node" + node_id, "receiver", 1.0)
             new_block = Block(
-                index=len(BLOCKCHAIN),
+                index=BLOCKCHAIN[last_hash].index + 1,
                 prev_hash=last_hash,
                 proposer=f"node{node_id}",
                 transactions=[tx]
