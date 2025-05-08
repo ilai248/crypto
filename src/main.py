@@ -4,7 +4,7 @@ from blockchain import Block, Transaction, BlockRequest, BlockRequest_heart
 from gossip import GossipNode
 
 class LocalInfo:
-    def __init__(self, balance_root_hash):
+    def __init__(self, balance_root_hash = b'0'):
         self.balance_root_hash: bytes = balance_root_hash
 
 PEER_PORTS = {
@@ -31,10 +31,10 @@ def validate_transaction(transaction: Transaction) -> bool:
     return state == local_info.balance_root_hash and 0 <= balance.coin_amount <= transaction.sender.money
 
 def validate_block(max_time: int, block_request: BlockRequest) -> bool:
-    transactions_ok = all(validate_transaction(t) and t.expiration <= block_request.index for t in block_request.transactions)
-    timestamp_ok = get_block(block_request.prev_hash).timestamp <= block_request.timestamp <= max_time
-    #heart_ok = hashlib.sha256(block_request.)
-    #key_ok = ...
+    transactions_ok = all(validate_transaction(t) and t.expiration <= block_request.block.index for t in block_request.block.transactions)
+    timestamp_ok = get_block(block_request.block.prev_hash).timestamp <= block_request.block.timestamp <= max_time
+    #heart_ok = hashlib.sha256(block_request.heart)
+    key_ok = ...
     #return parent_ok
 
 def on_block_received(block: 'BlockRequest'):

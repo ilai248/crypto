@@ -51,12 +51,12 @@ class Block:
     @staticmethod
     def from_dict(data):
         txs = [Transaction(**tx) for tx in data["transactions"]]
-        blk = Block(data["index"], data["prev_hash"], data["proposer"], txs, data["timestamp"])
+        blk = Block(data["index"], data["prev_hash"], data["proposer"], txs, data["signature"], data["timestamp"])
         blk.hash = data["hash"]
         return blk
 
 class BlockRequest_heart:
-    def __init__(self, timestamp: int, public_key):
+    def __init__(self, timestamp: int, public_key: bytes):
         self.timestamp: int = timestamp
         self.public_key: bytes = public_key
 
@@ -64,6 +64,7 @@ class BlockRequest_heart:
         return hashlib.sha256(f"{self.timestamp}|{self.public_key}".encode()).hexdigest()
 
 class BlockRequest:
-    def __init__(self, heart, block):
+    def __init__(self, heart: BlockRequest_heart, difficulty_factor: int, block: Block):
         self.heart: 'BlockRequest_heart' = heart
+        self.difficulty_factor = difficulty_factor
         self.block = block
