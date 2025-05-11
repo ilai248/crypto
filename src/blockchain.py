@@ -30,12 +30,11 @@ class Block:
     def __init__(self, index, prev_hash, proposer, balance_info, transactions):
         self.index = index
         self.prev_hash = prev_hash
-        self.proposer = proposer
         self.balance_info: 'BalanceInfo' = balance_info
         self.transactions = transactions  # list of Transaction
         self.hash = self.compute_hash()
         self.signature = encrypt(self.hash)
-    
+
     def compute_hash(self):
         block_string = f"{self.index}|{self.prev_hash}|{self.proposer}|{self.timestamp}|{[tx.to_dict() for tx in self.transactions]}"
         return hashlib.sha256(block_string.encode()).hexdigest()
@@ -72,10 +71,11 @@ class BlockRequest_heart:
         }
 
 class BlockRequest:
-    def __init__(self, heart: BlockRequest_heart, difficulty_factor: int, roots, block: Block):
+    def __init__(self, heart: BlockRequest_heart, difficulty_factor: int, roots, n, block: Block):
         self.heart: 'BlockRequest_heart' = heart
         self.difficulty_factor = difficulty_factor
         self.roots = roots
+        self.n = n
         self.block = block
         
     def to_dict(self):
@@ -83,5 +83,6 @@ class BlockRequest:
             'heart': self.heart.to_dict(),
             "difficulty_factor": self.difficulty_factor,
             "roots": self.roots,
+            "n": self.n,
             'block': self.block.to_dict()
         }
