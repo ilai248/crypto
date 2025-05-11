@@ -1,6 +1,5 @@
 from hashlib import sha256
 
-        
 def lsb(n):
     if n == 0:
         return None  # No '1' in the binary representation of 0

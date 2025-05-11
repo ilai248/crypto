@@ -7,30 +7,34 @@ TRANSACTION_EXPIRATION = 100
 LOCAL_CHAIN_SIZE = TRANSACTION_EXPIRATION*2
 
 class BalanceInfo:
-    def __init__(self, verify_hashes, balance_addr, coin_amount):
-        self.verify_hashes: List[bytes] = verify_hashes
-        self.balance_addr: int = balance_addr
-        self.coin_amount: int = coin_amount
+    def __init__(self, brolist, pos, money):
+        self.brolist: List[bytes] = brolist
+        self.pos: int = pos
+        self.money: int = money
 
 class Transaction:
-    def __init__(self, sender, receiver, amount, public_key, signature, balance, curr_block_index, blocks_till_expire=TRANSACTION_EXPIRATION):
+    def __init__(self, sender, receiver, amount, public_key, balance, curr_block_index, blocks_till_expire=TRANSACTION_EXPIRATION):
         self.sender = sender
         self.receiver = receiver
         self.amount = amount
         self.public_key = public_key
         self.expiration = curr_block_index + blocks_till_expire
         self.balance_info: BalanceInfo = balance
-        self.signature = signature
+        self.signature = encrypt(self.compute_hash())
+
+    def compute_hash(self):
+        string = f"{self.sender}|{self.receiver}|{self.amount}|{self.public_key}|{self.expiration}|{self.balance_info}"
+        return hashlib.sha256(string.encode()).hexdigest()
 
     def to_dict(self):
         return {"sender": self.sender, "receiver": self.receiver, "amount": self.amount}
 
-# TODO: Add balance_info
 class Block:
-    def __init__(self, index, prev_hash, proposer, balance_info, transactions):
+    def __init__(self, index, prev_hash, balance_info, transactions, new_users):
         self.index = index
         self.prev_hash = prev_hash
         self.balance_info: 'BalanceInfo' = balance_info
+        self.new_users = new_users
         self.transactions = transactions  # list of Transaction
         self.hash = self.compute_hash()
         self.signature = encrypt(self.hash)

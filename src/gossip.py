@@ -3,6 +3,7 @@ import threading
 import json
 import time
 from blockchain import Block, Transaction
+from main import get_balance_info, get_last_block
 
 MIN_REQ_TIME = 3
 MIN_REQ_ANS  = 10
@@ -24,11 +25,15 @@ def most_common(lst):
     return None
 
 class GossipNode:
-    def __init__(self, host, port, peers, on_block, blockchain=None):
+    def __init__(self, host, port, peers, public_key, uid, on_block_create_req, on_add_user, on_transact_verified, blockchain=None):
         self.host = host
         self.port = port
         self.peers = peers  # list of (ip, port)
-        self.on_block = on_block
+        self.public_key = public_key
+        self.uid = uid
+        self.on_block_create_req = on_block_create_req
+        self.on_add_user = on_add_user
+        self.on_transact_verified = on_transact_verified
         self.blockchain = blockchain  # Reference to blockchain for responding to requests
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.bind((host, port))
@@ -45,23 +50,38 @@ class GossipNode:
             try:
                 data = conn.recv(65536).decode()
                 message = json.loads(data)
-                if message["type"] == "block":
-                    block = Block.from_dict(message["data"])
-                    print(f"[RECV BLOCK] from {block.proposer}: {block.hash[:10]}")
-                    self.on_block(block)
-                elif message["type"] == "request":
+                response_data = None
+                # if message["type"] == "block":
+                #     block = Block.from_dict(message["data"])
+                #     print(f"[RECV BLOCK] from {block.proposer}: {block.hash[:10]}")
+                #     self.on_block_create_req(block)
+                if message["type"] == "request":
                     # Handle generic request by responding with requested data
                     req_type = message["data"]["type"]
                     req_data = message["data"]["data"]
-                    response_data = None
-                    if req_type == "get_block" and self.blockchain:
-                        block_hash = req_data
-                        if block_hash in self.blockchain:
-                            block = self.blockchain[block_hash]
-                            response_data = block.to_dict()
-                    # Send response
-                    response = json.dumps({"type": "response", "data": response_data})
-                    conn.sendall(response.encode())
+                    if req_type == "get_block" and req_data in self.blockchain:
+                        block = self.blockchain[req_data]
+                        response_data = block.to_dict()
+                    elif req_type == "add_user":
+                        self.on_add_user(req_data)
+                    elif req_type == "verify_transaction":
+                        sender   = self.uid
+                        receiver = req_data.get("receiver_pos", None)
+                        amount   = req_data.get("amount", None)
+                        pub_key  = self.public_key
+                        balance  = get_balance_info()
+                        curr_idx = get_last_block().index
+                        transact = Transaction(sender, receiver, amount, pub_key, balance, curr_idx)
+                        self.broadcast_data("transaction_verified", transact.to_dict())
+                    elif req_type == "transaction_verified":
+                        self.on_transact_verified(Transaction.from_dict(req_data))
+                    elif req_type == "create_block":
+                        self.on_block_create_req(req_data, self)
+
+                    if response_data is not None:
+                        # Send response
+                        response = json.dumps({"type": "response", "data": response_data})
+                        conn.sendall(response.encode())
             except Exception as e:
                 print(f"Error handling peer: {e}")
 
@@ -137,17 +157,30 @@ class GossipNode:
         self.sync_request_most_likely("get_block", block_hash, lambda result: listener(Block.from_dict(result)))
 
     def broadcast_data(self, type, data):
-        message = json.dumps({"type": type, "data": data})
-        for ip, port in self.peers:
+        response_count = 0
+        def request_from_peer(ip, port):
+            nonlocal response_count
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.connect((ip, port))
+                    message = json.dumps({"type": "request", "data": {"type": type, "data": data}})
                     s.sendall(message.encode())
             except Exception as e:
-                print(f"Failed to send to {ip}:{port} - {e}")
+                print(f"Error requesting from {ip}:{port} - {e}")
+
+        # Start daemon threads for each peer
+        for ip, port in self.peers:
+            t = threading.Thread(target=request_from_peer, args=(ip, port), daemon=True)
+            t.start()
 
     def broadcast_block(self, block):
         self.broadcast_data("block", block.to_dict())
 
     def broadcast_BlockRequest(self, block_req):
-        self.broadcast_data("block_request", block_req.to_dict())
+        self.broadcast_data("create_block", block_req.to_dict())
+
+    def broadcast_requestAdd(self, public_key):
+        self.broadcast_data("add_user", public_key)
+    
+    def broadcast_verifyTransactionRequest(self, receiver_pos, amount):
+        self.broadcast_data("verify_transaction", {"receiver_pos": receiver_pos, "amount": amount})

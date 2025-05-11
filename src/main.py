@@ -13,12 +13,28 @@ PEER_PORTS = {
 transactions = []
 TRANSACTIONS_PER_BLOCK = 1000
 
+new_users = []
+NEW_USERS_PER_BLOCK = 1000
+
 BLOCKCHAIN = {}
 last_hash: bytes
 money_heap: virt_bin_heap = virt_bin_heap # TODO Initialize
 
 TIME_INTERVAL_MS = 1000
 curr_max_time = TIME_INTERVAL_MS # The first round will end in exactly 1 second from the launch.
+
+def get_balance_info():
+    return BalanceInfo(money_heap.brolist, money_heap.pos, money_heap.coin_amount)
+
+def on_add_user(public_key):
+    new_users.append(public_key)
+
+def on_transact_verified(transact: Transaction):
+    if validate_transaction(transact):
+        transactions.append(transact)
+
+def get_last_block():
+    return BLOCKCHAIN[last_hash]
 
 def get_block(block_hash: bytes, gossip: GossipNode):
     if block_hash in BLOCKCHAIN:
@@ -54,16 +70,17 @@ def create_blockrequest(index: int, min_time: int, max_time: int, gossip: Gossip
     new_index = BLOCKCHAIN[last_hash].block.index + 1
     prev_hash = last_hash
     proposer = money_heap.pos
-    balance_info = BalanceInfo(money_heap.brolist, money_heap.pos, money_heap.coin_amount)
+    balance_info = get_balance_info()
     block_transactions = transactions[:TRANSACTIONS_PER_BLOCK]
-    block: Block = Block(new_index, prev_hash, proposer, balance_info, block_transactions)
+    block_users = new_users[:TRANSACTIONS_PER_BLOCK]
+    block: Block = Block(new_index, prev_hash, proposer, balance_info, block_transactions, block_users)
     for timestamp in range(min_time, max_time + 1):
         heart: BlockRequest_heart = BlockRequest_heart(timestamp, get_public_key())
         block_request: BlockRequest = BlockRequest(heart, difficulty_factor, money_heap.roots, block)
         gossip.broadcast_BlockRequest(block_request)
     # TOOD: Check if block is accepted.
 
-def on_block_received(block: 'BlockRequest', gossip: GossipNode):
+def on_block_create_req(block: 'BlockRequest', gossip: GossipNode):
     if validate_block(curr_max_time, block):
         block = block.block
         if block.hash in BLOCKCHAIN and block.transactions != BLOCKCHAIN[block.hash].transactions:
@@ -109,7 +126,7 @@ def start_node(node_id):
     port = 5000 if node_id == "1" else 5001
     peers = PEER_PORTS[node_id]
 
-    gossip = GossipNode("0.0.0.0", port, peers, on_block_received)
+    gossip = GossipNode("0.0.0.0", port, peers, on_block_create_req, on_add_user, on_transact_verified)
 
     # Genesis block
     if not BLOCKCHAIN:
