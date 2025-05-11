@@ -3,11 +3,14 @@ import sys, time, threading
 from blockchain import Block, Transaction, BlockRequest, BlockRequest_heart, BalanceInfo
 from gossip import GossipNode
 from bin_heap import virt_bin_heap
+import security
 
 PEER_PORTS = {
     "1": [("127.0.0.1", 5001)],
     "2": [("127.0.0.1", 5000)]
 }
+
+money_heap: virt_bin_heap = None
 
 # TODO: Add option to send transaction packets.
 transactions = []
@@ -18,13 +21,14 @@ NEW_USERS_PER_BLOCK = 1000
 
 BLOCKCHAIN = {}
 last_hash: bytes
-money_heap: virt_bin_heap = virt_bin_heap # TODO Initialize
 
-TIME_INTERVAL_MS = 1000
-curr_max_time = TIME_INTERVAL_MS # The first round will end in exactly 1 second from the launch.
+TIME_INTERVAL_SECONDS = 1
+curr_max_time = TIME_INTERVAL_SECONDS # The first round will end in exactly 1 second from the launch.
+
+curr_best_block_req: BlockRequest = None
 
 def get_balance_info():
-    return BalanceInfo(money_heap.brolist, money_heap.pos, money_heap.coin_amount)
+    return BalanceInfo(money_heap.brolist, money_heap.pos, money_heap.money, security.get_public_key())
 
 def on_add_user(public_key):
     new_users.append(public_key)
@@ -59,13 +63,10 @@ def validate_block(max_time: int, block_request: BlockRequest, gossip: GossipNod
 def calc_difficulty_factor():
     return 1 # PLACEHOLDER
 
-def encrypt(data):
-    return data # PLACEHOLDER
-
 def get_public_key():
     return b'0'*64 # PLACEHOLDER
 
-def create_blockrequest(index: int, min_time: int, max_time: int, gossip: GossipNode):
+def create_blockrequest(min_time: int, max_time: int, gossip: GossipNode):
     difficulty_factor = calc_difficulty_factor()
     new_index = BLOCKCHAIN[last_hash].block.index + 1
     prev_hash = last_hash
@@ -74,15 +75,29 @@ def create_blockrequest(index: int, min_time: int, max_time: int, gossip: Gossip
     block_transactions = transactions[:TRANSACTIONS_PER_BLOCK]
     block_users = new_users[:TRANSACTIONS_PER_BLOCK]
     block: Block = Block(new_index, prev_hash, proposer, balance_info, block_transactions, block_users)
+
+    min_hash_int = None
+    min_hash_req = None
+    min_target_hash = balance_info.money * difficulty_factor
     for timestamp in range(min_time, max_time + 1):
         heart: BlockRequest_heart = BlockRequest_heart(timestamp, get_public_key())
-        block_request: BlockRequest = BlockRequest(heart, difficulty_factor, money_heap.roots, block)
-        gossip.broadcast_BlockRequest(block_request)
-    # TOOD: Check if block is accepted.
+        heart_hash_int = heart.int_hash()
+        if min_hash_int is None or heart_hash_int < min(min_hash_int, min_target_hash):
+            min_hash_int = heart.hash()
+            block_request: BlockRequest = BlockRequest(heart, difficulty_factor, money_heap.roots, block)
+            min_hash_req = block_request
+    
+    if min_hash_int is not None:
+        gossip.broadcast_BlockRequest(min_hash_req)
+        transactions = transactions[TRANSACTIONS_PER_BLOCK:]
+        new_users = new_users[TRANSACTIONS_PER_BLOCK:]
+        last_hash = min_hash_req.block.hash
+        BLOCKCHAIN[last_hash] = min_hash_req.block
 
-def on_block_create_req(block: 'BlockRequest', gossip: GossipNode):
-    if validate_block(curr_max_time, block):
-        block = block.block
+
+def on_block_create_req(block_req: 'BlockRequest', gossip: GossipNode):
+    if validate_block(curr_max_time, block_req):
+        block = block_req.block
         if block.hash in BLOCKCHAIN and block.transactions != BLOCKCHAIN[block.hash].transactions:
             print("Bad Actor! Sending the ninjas...")
             # TODO: Send "Liar!" request
@@ -90,7 +105,8 @@ def on_block_create_req(block: 'BlockRequest', gossip: GossipNode):
             return
 
         if len(BLOCKCHAIN) == 0 or block.prev_hash == BLOCKCHAIN[-1].hash:
-            BLOCKCHAIN[block.hash] = block
+            if block_req.heart.int_hash() < curr_best_block_req.heart.int_hash():
+                curr_best_block_req = block_req
         else:
             original_block = block
             stake = blockchain_stake = 0
@@ -122,23 +138,37 @@ def on_block_create_req(block: 'BlockRequest', gossip: GossipNode):
         print("[FORK or STALE BLOCK] Ignored")
 
 
+def add_block_to_heap(block):
+    for public_key in block.new_users:
+        money_heap.insert(public_key)
+    for transact in block.transactions:
+        money_heap.change_data(transact.sender_balance.money - transact.amount, transact.sender, transact.sender_balance.brolist)
+        money_heap.change_data(transact.receiver_balance.money - transact.amount, transact.sender, transact.receiver_balance.brolist)
+
+
 def start_node(node_id):
+    global last_hash
     port = 5000 if node_id == "1" else 5001
     peers = PEER_PORTS[node_id]
 
-    gossip = GossipNode("0.0.0.0", port, peers, on_block_create_req, on_add_user, on_transact_verified)
+    gossip = GossipNode("0.0.0.0", port, peers, security.get_public_key(), on_block_create_req, on_add_user, on_transact_verified)
 
-    # Genesis block
+    # Genesis block (TODO: Add way to buy the prev block's hash so that we could verify new blocks).
     if not BLOCKCHAIN:
         genesis = Block(0, "0", "genesis", [])
         BLOCKCHAIN[genesis.hash] = genesis
         last_hash = genesis.hash
-
-    # TODO: Add logic.
+    gossip.broadcast_requestAdd(security.get_public_key())
 
     # Keep running
     while True:
-        time.sleep(1)
+        time.sleep(TIME_INTERVAL_SECONDS)
+        block = curr_best_block_req.block
+        BLOCKCHAIN[block.hash] = block
+        if money_heap is None:
+            money_heap = virt_bin_heap(curr_best_block_req.n, curr_best_block_req.roots)
+        add_block_to_heap(block)
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

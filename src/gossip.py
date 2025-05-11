@@ -65,18 +65,32 @@ class GossipNode:
                     conn.sendall(response.encode())
                 elif msg_type == "add_user":
                     self.on_add_user(msg_data)
-                elif msg_type == "verify_transaction":
-                    sender   = self.uid
-                    receiver = msg_data.get("receiver_pos", None)
-                    amount   = msg_data.get("amount", None)
-                    if receiver is None or amount is None:
-                        print("[*] DEBUG: Invalid Transaction To Verify")
-                        return
-                    pub_key  = self.public_key
-                    balance  = get_balance_info()
-                    curr_idx = get_last_block().index
-                    transact = Transaction(sender, receiver, amount, pub_key, balance, curr_idx)
-                    self.broadcast_data("transaction_verified", transact.to_dict())
+                elif msg_type == "req_send_money":
+                    sender         = msg_data.get("sender", None)
+                    sender_balance = msg_data.get("sender_balance", None)
+                    receiver       = msg_data.get("receiver", None)
+                    amount         = msg_data.get("amount", None)
+                    if receiver == self.uid:
+                        if receiver is None or amount is None:
+                            print("[*] DEBUG: Invalid Transaction To Verify")
+                            return
+                        receiver_balance  = get_balance_info()
+                        curr_idx          = get_last_block().index
+                        transact          = Transaction(sender, receiver, amount, sender_balance, receiver_balance, curr_idx)
+                        self.broadcast_data("transaction_verified", transact.to_dict())
+                elif msg_type == "req_get_money":
+                    sender         = msg_data.get("sender", None)
+                    receiver       = msg_data.get("receiver", None)
+                    receiver_balance = msg_data.get("sender_balance", None)
+                    amount         = msg_data.get("amount", None)
+                    if sender == self.uid:
+                        if receiver is None or amount is None:
+                            print("[*] DEBUG: Invalid Transaction To Verify")
+                            return
+                        sender_balance = get_balance_info()
+                        curr_idx       = get_last_block().index
+                        transact       = Transaction(sender, receiver, amount, sender_balance, receiver_balance, curr_idx)
+                        self.broadcast_data("transaction_verified", transact.to_dict())
                 elif msg_type == "transaction_verified":
                     self.on_transact_verified(Transaction.from_dict(msg_data))
                 elif msg_type == "create_block":
@@ -177,5 +191,8 @@ class GossipNode:
     def broadcast_requestAdd(self, public_key):
         self.broadcast_data("add_user", public_key)
     
-    def broadcast_verifyTransactionRequest(self, receiver_pos, amount):
-        self.broadcast_data("verify_transaction", {"receiver_pos": receiver_pos, "amount": amount})
+    def broadcast_verifyTransactionRequest(self, sender, sender_balance, receiver, amount):
+        self.broadcast_data("req_send_money", {"sender": sender, "sender_balance": sender_balance.to_dict(), "receiver": receiver, "amount": amount})
+    
+    def broadcast_verifyTransactionRequest(self, receiver, receiver_balance, sender, amount):
+        self.broadcast_data("req_get_money", {"receiver": receiver, "receiver_balance": receiver_balance.to_dict(), "sender": sender, "amount": amount})
