@@ -1,27 +1,30 @@
 import hashlib
 import sys, time, threading
-from blockchain import Block, Transaction, BlockRequest, BlockRequest_heart
+from blockchain import Block, Transaction, BlockRequest, BlockRequest_heart, BalanceInfo
 from gossip import GossipNode
-
-class LocalInfo:
-    def __init__(self, balance_root_hash = b'0'):
-        self.balance_root_hash: bytes = balance_root_hash
+from bin_heap import virt_bin_heap
 
 PEER_PORTS = {
     "1": [("127.0.0.1", 5001)],
     "2": [("127.0.0.1", 5000)]
 }
 
+# TODO: Add option to send transaction packets.
+transactions = []
+TRANSACTIONS_PER_BLOCK = 1000
+
 BLOCKCHAIN = {}
-last_hash  = b""
+last_hash: bytes
+money_heap: virt_bin_heap = virt_bin_heap # TODO Initialize
 
 TIME_INTERVAL_MS = 1000
 curr_max_time = TIME_INTERVAL_MS # The first round will end in exactly 1 second from the launch.
-local_info: LocalInfo = LocalInfo()
 
-def get_block(block_hash: bytes) -> Block:
-    # TODO: implement
-    raise NotImplementedError()
+def get_block(block_hash: bytes, gossip: GossipNode):
+    if block_hash in BLOCKCHAIN:
+        return BLOCKCHAIN[block_hash]
+    else:
+        return gossip.get_block(block_hash)
 
 def validate_transaction(transaction: Transaction) -> bool:
     balance = transaction.balance_info
@@ -30,14 +33,37 @@ def validate_transaction(transaction: Transaction) -> bool:
         state = hashlib.sha256(state + salt).digest()
     return state == local_info.balance_root_hash and 0 <= balance.coin_amount <= transaction.sender.money
 
-def validate_block(max_time: int, block_request: BlockRequest) -> bool:
+def validate_block(max_time: int, block_request: BlockRequest, gossip: GossipNode) -> bool:
     transactions_ok = all(validate_transaction(t) and t.expiration <= block_request.block.index for t in block_request.block.transactions)
-    timestamp_ok = get_block(block_request.block.prev_hash).timestamp <= block_request.block.timestamp <= max_time
+    timestamp_ok = get_block(block_request.block.prev_hash, gossip).timestamp <= block_request.block.timestamp <= max_time
     #heart_ok = hashlib.sha256(block_request.heart)
     key_ok = ...
     #return parent_ok
 
-def on_block_received(block: 'BlockRequest'):
+def calc_difficulty_factor():
+    return 1 # PLACEHOLDER
+
+def encrypt(data):
+    return data # PLACEHOLDER
+
+def get_public_key():
+    return b'0'*64 # PLACEHOLDER
+
+def create_blockrequest(index: int, min_time: int, max_time: int, gossip: GossipNode):
+    difficulty_factor = calc_difficulty_factor()
+    new_index = BLOCKCHAIN[last_hash].block.index + 1
+    prev_hash = last_hash
+    proposer = money_heap.pos
+    balance_info = BalanceInfo(money_heap.brolist, money_heap.pos, money_heap.coin_amount)
+    block_transactions = transactions[:TRANSACTIONS_PER_BLOCK]
+    block: Block = Block(new_index, prev_hash, proposer, balance_info, block_transactions)
+    for timestamp in range(min_time, max_time + 1):
+        heart: BlockRequest_heart = BlockRequest_heart(timestamp, get_public_key())
+        block_request: BlockRequest = BlockRequest(heart, difficulty_factor, money_heap.roots, block)
+        gossip.broadcast_BlockRequest(block_request)
+    # TOOD: Check if block is accepted.
+
+def on_block_received(block: 'BlockRequest', gossip: GossipNode):
     if validate_block(curr_max_time, block):
         block = block.block
         if block.hash in BLOCKCHAIN and block.transactions != BLOCKCHAIN[block.hash].transactions:
@@ -55,7 +81,7 @@ def on_block_received(block: 'BlockRequest'):
             # Go up to forking point while collecting stake.
             while block.hash not in BLOCKCHAIN:
                 stake += block.balance_info.coin_amount
-                block = get_block(block.prev_hash) # TODO: Make sure it exists.
+                block = get_block(block.prev_hash, gossip) # TODO: Make sure it exists.
 
             # Collect the stake of our main chain up to the forking point.
             curr_block = BLOCKCHAIN[last_hash]
@@ -91,23 +117,7 @@ def start_node(node_id):
         BLOCKCHAIN[genesis.hash] = genesis
         last_hash = genesis.hash
 
-    # Block proposer simulation (TODO: Change).
-    def proposer_loop():
-        while True:
-            time.sleep(10)
-            tx = Transaction("node" + node_id, "receiver", 1.0)
-            new_block = Block(
-                index=BLOCKCHAIN[last_hash].index + 1,
-                prev_hash=last_hash,
-                proposer=f"node{node_id}",
-                transactions=[tx]
-            )
-            BLOCKCHAIN[new_block.hash] = new_block
-            last_hash = new_block.hash
-            gossip.broadcast_block(new_block)
-            print(f"[SENT BLOCK] {new_block.hash[:10]}")
-
-    threading.Thread(target=proposer_loop, daemon=True).start()
+    # TODO: Add logic.
 
     # Keep running
     while True:

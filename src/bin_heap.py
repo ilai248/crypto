@@ -5,11 +5,29 @@ class virt_bin_heap:
     def hashes(data):
         return sha256(data.encode()).hexdigest()
 
-    def __init__(self, uid, starting_brolist=[], n=0, roots=[]):
+    """
+    We need to account for a starting brolist because maybe we merged a lot in the start.
+    """
+    def __init__(self, uid, start_money, starting_brolist=[], n=0, roots=[]):
         self.n = n
         self.roots = roots
         self.brolist = starting_brolist
-        self.diff = uid - len(starting_brolist)
+        self.diff = uid - len(starting_brolist) # TODO: Fix
+        self.pos = 
+        self.my_money = start_money
+
+    # If we want to get the root after a change we need to input n after the change to the function.
+    def get_root_of_pos(self, pos, n):
+        return self.first_pos(n - pos)
+    
+    def root_in_n(self, root_idx, n):
+        return root_idx & n
+    
+    def get_root(self, root_idx):
+        return self.roots[-root_idx - 1]
+    
+    def set_root(self, root_idx, new_hash):
+        self.roots[-root_idx - 1] = new_hash
 
     def insert(self, data):
         """roots is sorted s.t. roots[0] represents the biggest tree"""
@@ -18,10 +36,16 @@ class virt_bin_heap:
             n = 1
             return 0, []
 
+        """
+        If the diff will become a power of 2, that means we will be linked.
+        Basically, it means that the first link will be with a tree created by the given node
+        and the rest with the roots (at the index that corrosponds to the power of 2 we'll become).
+        TODO: FIX.
+        """
         self.diff += 1
         if self.is_power_of2(self.diff):
-            curr_root_power = self.first_pos(self.diff)
-            while curr_root_power & n:  # curr root is in the heap.
+            curr_root_power = self.get_root_of_pos(self.diff)
+            while self.root_in_n(curr_root_power, n):  # curr root is in the heap. TODO: Maybe should be n+1?
                 self.brolist.append(self.roots[curr_root_power])
                 self.diff <<= 1
         
@@ -57,9 +81,22 @@ class virt_bin_heap:
     def is_power_of2(self, num: int):
         return num == (1 << self.first_pos(num))
 
+    def calc_hash(self, data, pos, bro_list):
+        h = virt_bin_heap.hashes(str(data) + str(pos))
+        for b in bro_list:
+            h = virt_bin_heap.hashes(str(h) + str(b))
+        return h
+
     def valid(self, data, pos, bro_lst):
         h = virt_bin_heap.hashes(str(data) + str(pos))
         for b in bro_lst:
             h = virt_bin_heap.hashes(str(h) + str(b))
-        
         return h in self.roots
+    
+    def change_data(self, data, pos, bro_list):
+        if pos == self.
+        root_idx = self.get_root_of_pos(pos)
+        self.set_root(root_idx, self.calc_hash(data, pos, bro_list))
+
+    def get_brolist(self):
+        return self.brolist

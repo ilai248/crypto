@@ -1,16 +1,38 @@
-import socket, threading, json
+import socket
+import threading
+import json
+import time
 from blockchain import Block, Transaction
 
+MIN_REQ_TIME = 3
+MIN_REQ_ANS  = 10
+
+def most_common(lst):
+    """
+    Return the most common item in lst, handling dictionaries by serializing to JSON.
+    Returns None if lst is empty.
+    """
+    if not lst:
+        return None
+    hashable_lst = [json.dumps(item, sort_keys=True) if isinstance(item, dict) else item for item in lst]
+    most_common_hash = max(hashable_lst, key=hashable_lst.count)
+    for item in lst:
+        if isinstance(item, dict) and json.dumps(item, sort_keys=True) == most_common_hash:
+            return item
+        elif item == most_common_hash:
+            return item
+    return None
+
 class GossipNode:
-    def __init__(self, host, port, peers, on_block):
+    def __init__(self, host, port, peers, on_block, blockchain=None):
         self.host = host
         self.port = port
         self.peers = peers  # list of (ip, port)
         self.on_block = on_block
+        self.blockchain = blockchain  # Reference to blockchain for responding to requests
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.bind((host, port))
         self.server.listen()
-
         threading.Thread(target=self.accept_peers, daemon=True).start()
 
     def accept_peers(self):
@@ -20,18 +42,102 @@ class GossipNode:
 
     def handle_peer(self, conn):
         with conn:
-            data = conn.recv(65536).decode()
             try:
+                data = conn.recv(65536).decode()
                 message = json.loads(data)
                 if message["type"] == "block":
                     block = Block.from_dict(message["data"])
                     print(f"[RECV BLOCK] from {block.proposer}: {block.hash[:10]}")
                     self.on_block(block)
+                elif message["type"] == "request":
+                    # Handle generic request by responding with requested data
+                    req_type = message["data"]["type"]
+                    req_data = message["data"]["data"]
+                    response_data = None
+                    if req_type == "get_block" and self.blockchain:
+                        block_hash = req_data
+                        if block_hash in self.blockchain:
+                            block = self.blockchain[block_hash]
+                            response_data = block.to_dict()
+                    # Send response
+                    response = json.dumps({"type": "response", "data": response_data})
+                    conn.sendall(response.encode())
             except Exception as e:
-                print("Error handling peer:", e)
+                print(f"Error handling peer: {e}")
 
-    def broadcast_block(self, block):
-        message = json.dumps({"type": "block", "data": block.to_dict()})
+    def broadcast_request(self, type, data, min_ans, interval, listener):
+        """
+        Broadcast a request to all peers and collect responses.
+        Calls listener with list of results when min_ans responses are received or interval elapses.
+        Remaining threads run as daemons and complete in the background.
+        """
+        results = []
+        results_lock = threading.Lock()
+        response_count = 0
+        stop_event = threading.Event()
+
+        def request_from_peer(ip, port):
+            nonlocal response_count
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.settimeout(interval)
+                    s.connect((ip, port))
+                    message = json.dumps({"type": "request", "data": {"type": type, "data": data}})
+                    s.sendall(message.encode())
+                    response_data = s.recv(65536).decode()
+                    response = json.loads(response_data)
+                    if response["type"] == "response" and response["data"] is not None:
+                        with results_lock:
+                            results.append(response["data"])
+                            response_count += 1
+                            if response_count >= min_ans:
+                                stop_event.set()
+            except Exception as e:
+                print(f"Error requesting from {ip}:{port} - {e}")
+
+        # Start daemon threads for each peer
+        for ip, port in self.peers:
+            t = threading.Thread(target=request_from_peer, args=(ip, port), daemon=True)
+            t.start()
+
+        # Wait for min_ans responses or timeout
+        stop_event.wait(timeout=interval)
+
+        # Call listener immediately, let remaining threads finish in background
+        listener(results)
+
+    def request_most_likely(self, type, data, listener):
+        def wrapper_listener(results):
+            listener(most_common(results))
+        self.broadcast_request(type, data, MIN_REQ_ANS, MIN_REQ_TIME, wrapper_listener)
+
+    def sync_request_most_likely(self, type, data, timeout=30.0):
+        """
+        Synchronously broadcast a request and return the most common result.
+        Blocks until a result is received or timeout elapses.
+
+        Args:
+            type (str): Type of request (e.g., "get_block").
+            data (any): Data for the request (e.g., block hash).
+            timeout (float): Maximum time to wait (seconds).
+
+        Returns:
+            The most common result (e.g., Block for type="get_block") or None if no result.
+        """
+        result = [None]  # Use a list for mutable, thread-safe storage
+        result_event = threading.Event()
+        def on_res(res):
+            result[0] = res
+            result_event.set()
+        self.request_most_likely(type, data, on_res)
+        result_event.wait(timeout=timeout)
+        return result[0]
+
+    def get_block(self, block_hash, listener):
+        self.sync_request_most_likely("get_block", block_hash, lambda result: listener(Block.from_dict(result)))
+
+    def broadcast_data(self, type, data):
+        message = json.dumps({"type": type, "data": data})
         for ip, port in self.peers:
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -39,3 +145,9 @@ class GossipNode:
                     s.sendall(message.encode())
             except Exception as e:
                 print(f"Failed to send to {ip}:{port} - {e}")
+
+    def broadcast_block(self, block):
+        self.broadcast_data("block", block.to_dict())
+
+    def broadcast_BlockRequest(self, block_req):
+        self.broadcast_data("block_request", block_req.to_dict())

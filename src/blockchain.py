@@ -1,6 +1,8 @@
 import time, hashlib, json
 from typing import List
 
+from main import encrypt
+
 TRANSACTION_EXPIRATION = 100
 LOCAL_CHAIN_SIZE = TRANSACTION_EXPIRATION*2
 
@@ -25,20 +27,20 @@ class Transaction:
 
 # TODO: Add balance_info
 class Block:
-    def __init__(self, index, prev_hash, proposer, balance_info, transactions, signature, timestamp=None):
+    def __init__(self, index, prev_hash, proposer, balance_info, transactions):
         self.index = index
         self.prev_hash = prev_hash
         self.proposer = proposer
         self.balance_info: 'BalanceInfo' = balance_info
         self.transactions = transactions  # list of Transaction
-        self.signature = signature
-        self.timestamp = timestamp or time.time()
         self.hash = self.compute_hash()
-
+        self.signature = encrypt(self.hash)
+    
     def compute_hash(self):
         block_string = f"{self.index}|{self.prev_hash}|{self.proposer}|{self.timestamp}|{[tx.to_dict() for tx in self.transactions]}"
         return hashlib.sha256(block_string.encode()).hexdigest()
 
+    # TODO: Fix
     def to_dict(self):
         return {
             "prev_hash": self.prev_hash,
@@ -62,9 +64,24 @@ class BlockRequest_heart:
 
     def compute_hash(self):
         return hashlib.sha256(f"{self.timestamp}|{self.public_key}".encode()).hexdigest()
+    
+    def to_dict(self):
+        return {
+            "timestamp": self.timestamp,
+            "public_key": self.public_key
+        }
 
 class BlockRequest:
-    def __init__(self, heart: BlockRequest_heart, difficulty_factor: int, block: Block):
+    def __init__(self, heart: BlockRequest_heart, difficulty_factor: int, roots, block: Block):
         self.heart: 'BlockRequest_heart' = heart
         self.difficulty_factor = difficulty_factor
+        self.roots = roots
         self.block = block
+        
+    def to_dict(self):
+        return {
+            'heart': self.heart.to_dict(),
+            "difficulty_factor": self.difficulty_factor,
+            "roots": self.roots,
+            'block': self.block.to_dict()
+        }
