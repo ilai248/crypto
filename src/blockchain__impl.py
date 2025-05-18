@@ -28,10 +28,10 @@ class BlockchainUser:
         self.transactions = []
         self.new_users = [get_public_key_str()]
         self.blockchain = {last_block.hash: last_block}
-        self.last_hash = last_block.hash
+        self.last_hash = last_block.hash # TODO: There should be no initial last block hash
         self.curr_max_time = curr_max_time
         self.curr_best_block_req: BlockRequest = None
-        self.valid = False
+        self.valid = False # "valid" is whether we have been added to the network
         self.gossip: GossipNode = GossipNode("0.0.0.0", port, get_public_key_str(), node_id, self)
         do_periodic(self.request_add, [], USER_ADD_BROADCAST_PERIOD)
 
@@ -42,7 +42,7 @@ class BlockchainUser:
         return False
 
     def can_create(self):
-        return len(self.new_users) >= NEW_USERS_PER_BLOCK or len(self.transactions) >= TRANSACTIONS_PER_BLOCK and self.valid
+        return (len(self.new_users) >= NEW_USERS_PER_BLOCK or len(self.transactions) >= TRANSACTIONS_PER_BLOCK) and self.valid
 
     def get_interval(self, timestamp):
         return timestamp//TIME_INTERVAL_SECONDS
@@ -81,10 +81,10 @@ class BlockchainUser:
         signature_ok = transaction.validate_signature()
         return balance_ok and money_ok and signature_ok
 
-    def is_pow_transaction(self, block, t):
-        return t.receiver_balance.public_key == block.pow_key and \
-               t.sender_balance.public_key == block.balance_info.public_key and \
-               t.amount == POW_PAY
+    def is_pow_transaction(self, block, transaction: Transaction):
+        return transaction.receiver_balance.public_key == block.pow_key and \
+               transaction.sender_balance.public_key == block.balance_info.public_key and \
+               transaction.amount == POW_PAY
 
     def pow_correct(self, block): # TODO: Calculate goal based on timestamp
         return block.hash[:self.pow_goal()] == "00"*self.pow_goal()
@@ -100,7 +100,7 @@ class BlockchainUser:
         return transactions_ok and index_ok and pow_ok and heart_ok
 
     def calc_difficulty_factor(self):
-        return 1  # PLACEHOLDER
+        return 1  # PLACEHOLDER (shouldn't start at 1)
     
     def pow_goal(self):
         return 0  # PLACEHOLDER
@@ -182,6 +182,10 @@ class BlockchainUser:
         for public_key in block.new_users:
             self.money_heap.insert(public_key)
         for transact in block.transactions:
+            if transact.receiver_balance.public_key == get_public_key_str():
+                self.money_heap.money += transact.amount
+            if transact.sender_balance.public_key == get_public_key_str():
+                self.money_heap.money -= transact.amount
             self.money_heap.change_data(
                 transact.sender_balance.money - transact.amount,
                 transact.sender,

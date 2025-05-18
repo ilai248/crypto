@@ -92,8 +92,8 @@ class GossipNode:
                 if msg_type == "request":
                     req_type = message["data"]["type"]
                     req_data = message["data"]["data"]
-                    if req_type == "get_block" and req_data in self.blockchain:
-                        block = self.blockchain[req_data]
+                    if req_type == "get_block" and req_data in self.user.blockchain:
+                        block = self.user.blockchain[req_data]
                         response_data = block.to_dict()
                     response = json.dumps({"type": "response", "data": response_data})
                     conn.sendall(response.encode())
