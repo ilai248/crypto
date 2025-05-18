@@ -26,6 +26,8 @@ TIME_INTERVAL_SECONDS = 1
 curr_max_time = TIME_INTERVAL_SECONDS # The first round will end in exactly 1 second from the launch.
 
 curr_best_block_req: BlockRequest = None
+POW_GOAL = 20
+POW_PAY  = 1
 
 def get_balance_info():
     return BalanceInfo(money_heap.brolist, money_heap.pos, money_heap.money, security.get_public_key())
@@ -46,19 +48,24 @@ def get_block(block_hash: bytes, gossip: GossipNode):
     else:
         return gossip.get_block(block_hash)
 
+def validate_balance(balance: BalanceInfo):
+    return money_heap.valid(balance.data, balance.pos, balance.brolist)
+
 def validate_transaction(transaction: Transaction) -> bool:
-    balance = transaction.balance_info
-    state = hashlib.sha256(transaction.public_key + transaction.sender.money).digest()
-    for salt in balance.verify_hashes:
-        state = hashlib.sha256(state + salt).digest()
-    return state == local_info.balance_root_hash and 0 <= balance.coin_amount <= transaction.sender.money
+    balance_ok = validate_balance(transaction.sender_balance) and validate_balance(transaction.receiver_balance)
+    money_ok = 0 < transaction.money <= transaction.sender_balance.money
+    return balance_ok and money_ok
+
+def is_pow_transaction(block, t):
+    return t.receiver_balance.public_key == block.pow_key and t.sender_balance.public_key == block.balance_info.public_key and t.amount == POW_PAY
 
 def validate_block(max_time: int, block_request: BlockRequest, gossip: GossipNode) -> bool:
-    transactions_ok = all(validate_transaction(t) and t.expiration <= block_request.block.index for t in block_request.block.transactions)
-    timestamp_ok = get_block(block_request.block.prev_hash, gossip).timestamp <= block_request.block.timestamp <= max_time
-    #heart_ok = hashlib.sha256(block_request.heart)
-    key_ok = ...
-    #return parent_ok
+    block = block_request.block
+    transactions_ok = all(validate_transaction(t) and t.expiration <= block.index for t in block.transactions)
+    timestamp_ok = get_block(block.prev_hash, gossip).timestamp <= block.timestamp <= max_time
+    pow_ok = set(block.hash[:POW_GOAL]) == b"\x00" and any(map(is_pow_transaction, block.transactions))
+    heart_ok = block_request.heart.int_hash() < block.balance_info.money * calc_difficulty_factor()
+    return transactions_ok and timestamp_ok and pow_ok and heart_ok
 
 def calc_difficulty_factor():
     return 1 # PLACEHOLDER
@@ -102,6 +109,7 @@ def on_block_create_req(block_req: 'BlockRequest', gossip: GossipNode):
             print("Bad Actor! Sending the ninjas...")
             # TODO: Send "Liar!" request
             # TODO: Send the ninjas.
+            # TODO: Train an ai model to find the locations of everyone (for the ninjas).
             return
 
         if len(BLOCKCHAIN) == 0 or block.prev_hash == BLOCKCHAIN[-1].hash:

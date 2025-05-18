@@ -1,9 +1,12 @@
 import time, hashlib, json
 from typing import List
-from security import encrypt
+from security import encrypt, get_public_key
 
 TRANSACTION_EXPIRATION = 100
 LOCAL_CHAIN_SIZE = TRANSACTION_EXPIRATION*2
+
+def shash(*args):
+    return hashlib.sha256("|".join(str(arg for arg in args)).encode()).hexdigest()
 
 class BalanceInfo:
     def __init__(self, brolist, pos, money, public_key):
@@ -11,11 +14,10 @@ class BalanceInfo:
         self.pos: int = pos
         self.money: int = money
         self.public_key: bytes = public_key
+        self.data = shash(public_key, money)
 
 class Transaction:
-    def __init__(self, sender, receiver, amount, sender_balance, receiver_balance, curr_block_index, blocks_till_expire=TRANSACTION_EXPIRATION):
-        self.sender = sender
-        self.receiver = receiver
+    def __init__(self, amount, sender_balance, receiver_balance, curr_block_index, blocks_till_expire=TRANSACTION_EXPIRATION):
         self.amount = amount
         self.expiration = curr_block_index + blocks_till_expire
         self.sender_balance: BalanceInfo = sender_balance
@@ -23,22 +25,24 @@ class Transaction:
         self.signature = encrypt(self.compute_hash())
 
     def compute_hash(self):
-        string = f"{self.sender}|{self.receiver}|{self.amount}|{self.expiration}|{self.sender_balance}|{self.receiver_balance}"
-        return hashlib.sha256(string.encode()).hexdigest()
+        return shash(self.sender, self.receiver, self.amount, self.expiration, self.sender_balance, self.receiver_balance)
 
 class Block:
-    def __init__(self, index, prev_hash, balance_info, transactions, new_users):
+    def __init__(self, index, prev_hash, balance_info, transactions, new_users, pow_pub_key=None):
         self.index = index
         self.prev_hash = prev_hash
-        self.balance_info: 'BalanceInfo' = balance_info
-        self.new_users = new_users
+        self.balance_info: BalanceInfo = balance_info
+        self.new_users = new_users # List of public keys
         self.transactions = transactions  # list of Transaction
+        self.med_hash = self.compute_med_hash()
+        self.pow_key = pow_pub_key
         self.hash = self.compute_hash()
-        self.signature = encrypt(self.hash)
+
+    def compute_med_hash(self):
+        return shash(self.index, self.prev_hash, self.proposer, self.timestamp, [tx.to_dict() for tx in self.transactions])
 
     def compute_hash(self):
-        block_string = f"{self.index}|{self.prev_hash}|{self.proposer}|{self.timestamp}|{[tx.to_dict() for tx in self.transactions]}"
-        return hashlib.sha256(block_string.encode()).hexdigest()
+        return shash(self.med_hash, self.pow)
 
     @staticmethod
     def from_dict(data):
