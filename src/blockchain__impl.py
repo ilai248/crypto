@@ -33,13 +33,22 @@ class BlockchainUser:
         self.curr_best_block_req: BlockRequest = None
         self.valid = False
         self.gossip: GossipNode = GossipNode("0.0.0.0", port, get_public_key_str(), node_id, self)
-        do_periodic(lambda: self.gossip.broadcast_requestAdd(), USER_ADD_BROADCAST_PERIOD)
+        do_periodic(self.request_add, [], USER_ADD_BROADCAST_PERIOD)
+
+    def request_add(self) -> bool:
+        if self.valid:
+            return True
+        self.gossip.broadcast_requestAdd()
+        return False
 
     def can_create(self):
-        return len(self.new_users) >= NEW_USERS_PER_BLOCK or len(self.transactions) >= TRANSACTIONS_PER_BLOCK
+        return len(self.new_users) >= NEW_USERS_PER_BLOCK or len(self.transactions) >= TRANSACTIONS_PER_BLOCK and self.valid
 
+    def get_interval(self, timestamp):
+        return timestamp//TIME_INTERVAL_SECONDS
+    
     def curr_interval(self):
-        return time.time()//TIME_INTERVAL_SECONDS
+        return self.get_interval(time.time())
 
     def interval_time(self, interval):
         return interval*TIME_INTERVAL_SECONDS
@@ -78,16 +87,17 @@ class BlockchainUser:
                t.amount == POW_PAY
 
     def pow_correct(self, block): # TODO: Calculate goal based on timestamp
-        return set(block.hash[:self.pow_goal()]) == b"\x00"
+        return block.hash[:self.pow_goal()] == "00"*self.pow_goal()
 
     # TODO: Check that goal is correct based on timestamp.
-    def validate_block(self, max_time: int, block_request: BlockRequest) -> bool:
+    def validate_block(self, block_request: BlockRequest) -> bool:
         block = block_request.block
         transactions_ok = all(self.validate_transaction(t) and t.expiration <= block.index for t in block.transactions)
-        timestamp_ok = self.get_block(block.prev_hash, self.gossip).timestamp <= block.timestamp <= max_time
+        # TODO: Maybe add better check and maybe check timestamp.
+        index_ok = block.index == 0 or block.index - 1 == self.get_block(block.prev_hash).index
         pow_ok = self.pow_correct(block) and any(self.is_pow_transaction(block, t) for t in block.transactions)
         heart_ok = block_request.heart.int_hash() < block.balance_info.money * self.calc_difficulty_factor()
-        return transactions_ok and timestamp_ok and pow_ok and heart_ok
+        return transactions_ok and index_ok and pow_ok and heart_ok
 
     def calc_difficulty_factor(self):
         return 1  # PLACEHOLDER
@@ -96,7 +106,6 @@ class BlockchainUser:
         return 0  # PLACEHOLDER
 
     def create_blockrequest(self, min_time: int, max_time: int):
-        print("Crate Block #1")
         difficulty_factor = self.calc_difficulty_factor()
         new_index = self.blockchain[self.last_hash].index + 1
         prev_hash = self.last_hash
@@ -105,7 +114,6 @@ class BlockchainUser:
         block_users = self.new_users[:NEW_USERS_PER_BLOCK]
         block: Block = Block(new_index, prev_hash, balance_info, block_transactions, block_users, pow_pub_key=get_public_key_str())
 
-        print("Crate Block #2")
         min_hash_int = None
         min_hash_req = None
         min_target_hash = balance_info.money * difficulty_factor
@@ -117,21 +125,24 @@ class BlockchainUser:
                 block_request: BlockRequest = BlockRequest(heart, difficulty_factor, self.money_heap.roots, self.money_heap.n, block)
                 min_hash_req = block_request
 
-        print("Crate Block #3")
         if min_hash_int is not None:
             # TODO: If pow isn't correct broadcast request for pow.
             if not self.pow_correct(min_hash_req.block):
                 min_hash_req.block.pow = None
                 min_hash_req.block.hash = min_hash_req.block.compute_hash()
-            print("Crate Block #4")
+            else:
+                # Block is fully correct so we are valid!
+                self.valid = True
             self.gossip.broadcast_BlockRequest(min_hash_req)
             self.transactions = self.transactions[TRANSACTIONS_PER_BLOCK:]
             self.new_users = self.new_users[NEW_USERS_PER_BLOCK:]
             self.last_hash = min_hash_req.block.hash
             self.blockchain[self.last_hash] = min_hash_req.block
+            return min_hash_req
+        return None
 
     def on_block_create_req(self, block_req: BlockRequest):
-        if self.validate_block(self.curr_max_time, block_req, self.gossip):
+        if self.validate_block(block_req):
             block = block_req.block
             if block.hash in self.blockchain and block.transactions != self.blockchain[block.hash].transactions:
                 print("Bad Actor! Sending the ninjas...")
@@ -146,7 +157,7 @@ class BlockchainUser:
 
                 while block.hash not in self.blockchain:
                     stake += block.balance_info.money
-                    block = self.get_block(block.prev_hash, self.gossip)
+                    block = self.get_block(block.prev_hash)
 
                 curr_block = self.blockchain[self.last_hash]
                 while curr_block.hash != block.hash:
@@ -161,7 +172,7 @@ class BlockchainUser:
 
                     while original_block.hash != block.hash:
                         self.blockchain[original_block.hash] = original_block
-                        original_block = self.get_block(original_block.prev_hash, self.gossip)
+                        original_block = self.get_block(original_block.prev_hash)
 
             print(f"[CHAIN LENGTH] {len(self.blockchain)}")
         else:

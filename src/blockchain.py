@@ -30,7 +30,7 @@ class BalanceInfo:
             brolist=[bytes.fromhex(b) for b in data["brolist"]],
             pos=data["pos"],
             money=data["money"],
-            public_key=bytes.fromhex(data["public_key"])
+            public_key=data["public_key"]
         )
 
     def __hash__(self):
@@ -77,13 +77,13 @@ class Transaction:
         return int(self.compute_hash(), 16)
 
 class Block:
-    def __init__(self, index, prev_hash, balance_info, transactions, new_users, pow_pub_key=None):
+    def __init__(self, index, prev_hash, balance_info, transactions, new_users, timestamp=None, pow_pub_key=None):
         self.index = index
         self.prev_hash = prev_hash
         self.balance_info: BalanceInfo = balance_info
         self.transactions = transactions  # list of Transaction
         self.new_users = new_users  # List of public keys (bytes)
-        self.timestamp = int(time.time())
+        self.timestamp = int(time.time()) if timestamp is None else timestamp
         self.med_hash = self.compute_med_hash()
         self.pow_key = pow_pub_key
         self.hash = self.compute_hash()
@@ -117,9 +117,9 @@ class Block:
             prev_hash=data["prev_hash"],
             balance_info=BalanceInfo.from_dict(data["balance_info"]),
             transactions=[Transaction.from_dict(tx) for tx in data["transactions"]],
-            new_users=[bytes.fromhex(pk) for pk in data["new_users"]],
+            new_users=[pk for pk in data["new_users"]],
             timestamp=data["timestamp"],
-            pow_pub_key=bytes.fromhex(data["pow_key"]) if data["pow_key"] else None
+            pow_pub_key=data["pow_key"] if data["pow_key"] else None
         )
 
     def __hash__(self):
@@ -148,7 +148,7 @@ class BlockRequest_heart:
     def from_dict(data):
         obj = BlockRequest_heart(
             timestamp=data["timestamp"],
-            public_key=bytes.fromhex(data["public_key"])
+            public_key=data["public_key"]
         )
         obj.hash = data["hash"]
         return obj

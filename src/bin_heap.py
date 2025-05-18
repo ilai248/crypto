@@ -97,8 +97,8 @@ class virt_bin_heap:
         return self.n - 1, bro_lst
 
     # Creates the *current* user. Assumes the created user is the last one inserted.
-    def create(self, brolist, money):
-        self.pos = self.n - 1
+    def create(self, brolist, money, pos=None):
+        self.pos = self.n - 1 if pos is None else pos
         self.brolist = brolist
         self.money = money
         self.curr_root = lsb(self.n)

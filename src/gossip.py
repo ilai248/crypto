@@ -128,7 +128,7 @@ class GossipNode:
                 elif msg_type == "transaction_verified":
                     self.user.on_transact_verified(Transaction.from_dict(msg_data))
                 elif msg_type == "create_block":
-                    self.user.on_block_create_req(BlockRequest.from_dict(msg_data), self)
+                    self.user.on_block_create_req(BlockRequest.from_dict(msg_data))
             except Exception as e:
                 print(f"Error handling peer: {e}")
 
@@ -201,6 +201,7 @@ class GossipNode:
         self.broadcast_data("create_block", block_req.to_dict())
 
     def broadcast_requestAdd(self):
+        print("Sending request add")
         self.broadcast_data("add_user", self.public_key_str)
 
     def broadcast_verifyTransactionRequest(self, sender, sender_balance, receiver, amount):
