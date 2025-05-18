@@ -100,7 +100,7 @@ class virt_bin_heap:
     def create(self, brolist, money):
         self.pos = self.n - 1
         self.brolist = brolist
-        self.my_money = money
+        self.money = money
         self.curr_root = lsb(self.n)
         self.created = True
 
@@ -119,14 +119,14 @@ class virt_bin_heap:
             h = virt_bin_heap.hashes(str(h) + str(b))
         return h in self.roots
 
+    def set_money(self, money):
+        self.money = money
+    
     def change_data(self, data, pos, bro_list):
         root_idx = self.root_idx_by_bit(self.root_bit_by_pos(pos))
         root_hash = self.calc_hash(data, pos, bro_list)
-        if self.created:
-            if pos == self.pos:
-                self.my_money = data
-            if self.get_root(root_idx) in self.brolist:
-                self.brolist[self.brolist.index(root_idx)] = root_hash
+        if self.created and self.get_root(root_idx) in self.brolist:
+            self.brolist[self.brolist.index(root_idx)] = root_hash
         self.set_root(root_idx, root_hash)
 
     def get_brolist(self):
