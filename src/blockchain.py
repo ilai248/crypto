@@ -1,3 +1,4 @@
+import base64
 import time, hashlib, json
 from typing import List
 from security import sign, verify_signed
@@ -8,6 +9,10 @@ LOCAL_CHAIN_SIZE = TRANSACTION_EXPIRATION * 2
 
 def shash(*args) -> bytes:
     return hashlib.sha256("|".join(str(arg) for arg in args).encode()).digest()
+
+
+def bytes_to_string(string: bytes):
+    return base64.b64encode(string).decode("ascii")
 
 
 class BalanceInfo:
@@ -140,13 +145,13 @@ class BlockRequest_heart:
         return hashlib.sha256(f"{self.timestamp}|{self.public_key}".encode()).digest()
 
     def int_hash(self):
-        return int(self.hash, 16)
+        return int.from_bytes(self.hash, 'little')
 
     def to_dict(self):
         return {
             "timestamp": self.timestamp,
             "public_key": self.public_key,
-            "hash": self.hash
+            "hash": bytes_to_string(self.hash)
         }
 
     @staticmethod
@@ -155,7 +160,7 @@ class BlockRequest_heart:
             timestamp=data["timestamp"],
             public_key=data["public_key"]
         )
-        obj.hash = data["hash"]
+        obj.hash = base64.b64decode(data["hash"].encode("ascii"))
         return obj
 
     def __hash__(self):

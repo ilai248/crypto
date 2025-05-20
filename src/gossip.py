@@ -183,12 +183,13 @@ class GossipNode:
     def sync_request_most_likely(self, type, data, timeout=30.0):
         result = [None]
         result_event = threading.Event()
+
         def on_res(res):
             result[0] = res
             result_event.set()
+
         self.request_most_likely(type, data, on_res)
         result_event.wait(timeout=timeout)
-        print(result[0], "\n\n\n\n\n\n\n\n\n")
         return result[0]
 
     def get_block(self, block_hash, listener=None):
