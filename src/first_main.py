@@ -14,8 +14,8 @@ def start_node():
     if block_req is None:
         print("Failed to create starting block.")
         exit(1)
-    print("Starting block created:")
-    pprint(block_req.to_dict())
+    # print("Starting block created:")
+    # pprint(block_req.to_dict())
     while True:
         time.sleep(5)
         user.gossip.broadcast_BlockRequest(block_req)

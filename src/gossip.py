@@ -14,6 +14,7 @@ DISCOVERY_INTERVAL = 5  # Seconds between multicast announcements
 
 
 def most_common(lst):
+    print("DEBUG: Entering most_common")
     if not lst:
         return None
     hashable_lst = [json.dumps(item, sort_keys=True) if isinstance(item, dict) else item for item in lst]
@@ -28,6 +29,7 @@ def most_common(lst):
 
 class GossipNode:
     def __init__(self, host, port, public_key_str, uid, blockchain_user):
+        print("DEBUG: Entering GossipNode.__init__")
         self.host = host
         self.port = port
         self.peers = []  # Dynamic peer list
@@ -48,6 +50,7 @@ class GossipNode:
         threading.Thread(target=self.accept_peers, daemon=True).start()
 
     def start_multicast_discovery(self):
+        print("DEBUG: Entering start_multicast_discovery")
         # Multicast sender
         self.multicast_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         self.multicast_socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
@@ -62,6 +65,7 @@ class GossipNode:
         threading.Thread(target=self.receive_multicast, daemon=True).start()
 
     def send_multicast(self):
+        print("DEBUG: Entering send_multicast")
         while self.running:
             try:
                 message = json.dumps({'ip': self.host, 'port': self.port, 'uid': self.uid})
@@ -71,6 +75,7 @@ class GossipNode:
                 print(f"Error sending multicast: {e}")
 
     def receive_multicast(self):
+        print("DEBUG: Entering receive_multicast")
         while self.running:
             try:
                 data, addr = self.receiver_socket.recvfrom(1024)
@@ -83,11 +88,13 @@ class GossipNode:
                 print(f"Error receiving multicast: {e}")
 
     def accept_peers(self):
+        print("DEBUG: Entering accept_peers")
         while self.running:
             conn, addr = self.server.accept()
             threading.Thread(target=self.handle_peer, args=(conn,), daemon=True).start()
 
     def handle_peer(self, conn):
+        print("DEBUG: Entering handle_peer")
         with conn:
             try:
                 data = conn.recv(65536).decode()
@@ -116,8 +123,6 @@ class GossipNode:
                             return
                         receiver_balance = self.user.get_balance_info()
                         curr_idx = self.user.get_last_block().index
-                        #transact = Transaction(sender, receiver, amount, sender_balance, receiver_balance, curr_idx)
-                        # make sure patch works
                         transact = Transaction(amount, sender_balance, receiver_balance, curr_idx)
                         self.broadcast_data("transaction_verified", transact.to_dict())
                 elif msg_type == "req_get_money":
@@ -131,7 +136,6 @@ class GossipNode:
                             return
                         sender_balance = self.user.get_balance_info()
                         curr_idx = self.user.get_last_block().index
-                        #transact = Transaction(sender, receiver, amount, sender_balance, receiver_balance, curr_idx)
                         transact = Transaction(amount, sender_balance, receiver_balance, curr_idx)
                         self.broadcast_data("transaction_verified", transact.to_dict())
                 elif msg_type == "transaction_verified":
@@ -144,12 +148,14 @@ class GossipNode:
                 print(f"Error handling peer: {e}")
 
     def broadcast_request(self, message_type, data, min_ans, interval, listener):
+        print("DEBUG: Entering broadcast_request")
         results = []
         results_lock = threading.Lock()
         response_count = 0
         stop_event = threading.Event()
 
         def request_from_peer(ip, port):
+            print(f"DEBUG: Entering request_from_peer for {ip}:{port}")
             nonlocal response_count
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -176,15 +182,19 @@ class GossipNode:
         listener(results)
 
     def request_most_likely(self, type, data, listener):
+        print("DEBUG: Entering request_most_likely")
         def wrapper_listener(results):
+            print("DEBUG: Entering wrapper_listener")
             listener(most_common(results))
         self.broadcast_request(type, data, MIN_REQ_ANS, MIN_REQ_TIME, wrapper_listener)
 
     def sync_request_most_likely(self, type, data, timeout=30.0):
+        print("DEBUG: Entering sync_request_most_likely")
         result = [None]
         result_event = threading.Event()
 
         def on_res(res):
+            print("DEBUG: Entering on_res")
             result[0] = res
             result_event.set()
 
@@ -193,11 +203,14 @@ class GossipNode:
         return result[0]
 
     def get_block(self, block_hash, listener=None):
+        print("DEBUG: Entering get_block")
         inner_listener = (lambda result: listener(Block.from_dict(result)) if result is not None else None)
         return self.sync_request_most_likely("get_block", block_hash)
 
     def broadcast_data(self, type, data):
+        print("DEBUG: Entering broadcast_data")
         def request_from_peer(ip, port):
+            print(f"DEBUG: Entering request_from_peer for {ip}:{port}")
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.connect((ip, port))
@@ -211,19 +224,25 @@ class GossipNode:
             t.start()
 
     def broadcast_BlockRequest(self, block_req):
+        print("DEBUG: Entering broadcast_BlockRequest")
         self.broadcast_data("create_block", block_req.to_dict())
 
     def broadcast_requestAdd(self):
+        print("DEBUG: Entering broadcast_requestAdd")
         print("Sending request add")
+        print(type(self.public_key_str))
         self.broadcast_data("add_user", self.public_key_str)
 
     def broadcast_verifySendTransactionRequest(self, sender, sender_balance, receiver, amount):
+        print("DEBUG: Entering broadcast_verifySendTransactionRequest")
         self.broadcast_data("req_send_money", {"sender": sender, "sender_balance": sender_balance.to_dict(), "receiver": receiver, "amount": amount})
 
     def broadcast_verifyGetTransactionRequest(self, receiver, receiver_balance, sender, amount):
+        print("DEBUG: Entering broadcast_verifyGetTransactionRequest")
         self.broadcast_data("req_get_money", {"receiver": receiver, "receiver_balance": receiver_balance.to_dict(), "sender": sender, "amount": amount})
 
     def stop(self):
+        print("DEBUG: Entering stop")
         self.running = False
         self.server.close()
         self.multicast_socket.close()
