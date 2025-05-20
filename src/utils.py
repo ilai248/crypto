@@ -1,6 +1,7 @@
 import time
 import threading
 
+
 def do_periodic(func, args, period_seconds):
     def loop():
         while True:
