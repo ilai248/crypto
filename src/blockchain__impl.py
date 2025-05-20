@@ -22,6 +22,7 @@ genesis_block = Block(
 )
 empty_money_bin = virt_bin_heap(0, [])
 
+
 class BlockchainUser:
     def __init__(self, port: int, node_id: int, curr_max_time: int=TIME_INTERVAL_SECONDS, money_heap: virt_bin_heap=empty_money_bin, last_block: Block=genesis_block):
         self.money_heap: virt_bin_heap = money_heap
@@ -44,13 +45,15 @@ class BlockchainUser:
     def can_create(self):
         return (len(self.new_users) >= NEW_USERS_PER_BLOCK or len(self.transactions) >= TRANSACTIONS_PER_BLOCK) and self.valid
 
-    def get_interval(self, timestamp):
+    @staticmethod
+    def get_interval(timestamp):
         return timestamp//TIME_INTERVAL_SECONDS
     
     def curr_interval(self):
         return self.get_interval(time.time())
 
-    def interval_time(self, interval):
+    @staticmethod
+    def interval_time(interval):
         return interval*TIME_INTERVAL_SECONDS
 
     def get_balance_info(self):

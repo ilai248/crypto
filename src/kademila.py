@@ -46,7 +46,7 @@ class Node(Kademila):
         nodes.sort(key=lambda node: self.distance(node.node_id, target_id))
         return nodes[:count]
 
-    def lookup(self, target_id: int):
+    def lookup(self):
         nodes = self.routing_table[1]
         for bucket in self.routing_table[2:]:
             nodes.append(random.choice(bucket))
