@@ -41,7 +41,7 @@ class BalanceInfo:
         )
 
     def __hash__(self):
-        return int(shash(self.public_key, self.money), 16)
+        return int.from_bytes((shash(self.public_key, self.money), 16), 'big')
 
 
 class Transaction:
@@ -82,7 +82,7 @@ class Transaction:
         )
 
     def __hash__(self):
-        return int(self.compute_hash(), 16)
+        return int.from_bytes(self.compute_hash(), 'big')
 
 
 class Block:
@@ -132,7 +132,7 @@ class Block:
         )
 
     def __hash__(self):
-        return int(self.hash, 16)
+        return int.from_bytes(self.hash, 'big')
 
 
 class BlockRequest_heart:
@@ -145,7 +145,7 @@ class BlockRequest_heart:
         return hashlib.sha256(f"{self.timestamp}|{self.public_key}".encode()).digest()
 
     def int_hash(self):
-        return int.from_bytes(self.hash, 'little')
+        return int.from_bytes(self.hash, 'big')
 
     def to_dict(self):
         return {
@@ -164,7 +164,7 @@ class BlockRequest_heart:
         return obj
 
     def __hash__(self):
-        return int(self.hash, 16)
+        return int.from_bytes(self.hash, 'big')
 
 
 class BlockRequest:
@@ -195,4 +195,4 @@ class BlockRequest:
         )
 
     def __hash__(self):
-        return int(shash(self.heart.hash, self.block.hash, self.difficulty_factor, self.n), 16)
+        return int.from_bytes(shash(self.heart.hash, self.block.hash, self.difficulty_factor, self.n), 'big')
