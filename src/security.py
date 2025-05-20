@@ -13,6 +13,7 @@ public_key_bytes = public_key.public_bytes(
 )
 public_key_str = base64.b64encode(public_key_bytes).decode('utf-8')
 
+
 def encrypt(data):
     return public_key.encrypt(
                 data,
@@ -22,6 +23,7 @@ def encrypt(data):
                     label=None
                 )
             )
+
 
 def decrypt(data):
     return private_key.decrypt(
@@ -33,14 +35,18 @@ def decrypt(data):
                 )
             )
 
+
 def get_private_key():
     return private_key
+
 
 def get_public_key():
     return public_key
 
+
 def get_public_key_str():
     return public_key_str
+
 
 def sign(data: bytes) -> bytes:
     return private_key.sign(
@@ -52,9 +58,10 @@ def sign(data: bytes) -> bytes:
         hashes.SHA256()
     )
 
-def verify_signed(data: bytes, signature: bytes, public_key_str: bytes) -> bool:
+
+def verify_signed(data: bytes, signature: bytes, user_public_key_str: bytes) -> bool:
     # Deserialize public key
-    pubkey = serialization.load_der_public_key(base64.b64decode(public_key_str))
+    pubkey = serialization.load_der_public_key(base64.b64decode(user_public_key_str))
     try:
         pubkey.verify(
             signature,
@@ -68,4 +75,3 @@ def verify_signed(data: bytes, signature: bytes, public_key_str: bytes) -> bool:
         return True  # Signature is valid
     except InvalidSignature:
         return False  # Signature is invalid
-

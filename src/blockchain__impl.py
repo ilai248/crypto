@@ -22,15 +22,16 @@ genesis_block = Block(
 )
 empty_money_bin = virt_bin_heap(0, [])
 
+
 class BlockchainUser:
-    def __init__(self, port: int, node_id: str, curr_max_time: int=TIME_INTERVAL_SECONDS, money_heap: virt_bin_heap=empty_money_bin, last_block: Block=genesis_block):
+    def __init__(self, port: int, node_id: int, curr_max_time: int=TIME_INTERVAL_SECONDS, money_heap: virt_bin_heap=empty_money_bin, last_block: Block=genesis_block):
         self.money_heap: virt_bin_heap = money_heap
         self.transactions = []
         self.new_users = [get_public_key_str()]
         self.blockchain = {last_block.hash: last_block}
         self.last_hash = last_block.hash # TODO: There should be no initial last block hash
         self.curr_max_time = curr_max_time
-        self.curr_best_block_req: BlockRequest = None
+        self.curr_best_block_req: BlockRequest or None = None
         self.valid = False # "valid" is whether we have been added to the network
         self.gossip: GossipNode = GossipNode("0.0.0.0", port, get_public_key_str(), node_id, self)
         do_periodic(self.request_add, [], USER_ADD_BROADCAST_PERIOD)
@@ -44,13 +45,15 @@ class BlockchainUser:
     def can_create(self):
         return (len(self.new_users) >= NEW_USERS_PER_BLOCK or len(self.transactions) >= TRANSACTIONS_PER_BLOCK) and self.valid
 
-    def get_interval(self, timestamp):
+    @staticmethod
+    def get_interval(timestamp):
         return timestamp//TIME_INTERVAL_SECONDS
     
     def curr_interval(self):
         return self.get_interval(time.time())
 
-    def interval_time(self, interval):
+    @staticmethod
+    def interval_time(interval):
         return interval*TIME_INTERVAL_SECONDS
 
     def get_balance_info(self):
@@ -77,11 +80,12 @@ class BlockchainUser:
 
     def validate_transaction(self, transaction: Transaction) -> bool:
         balance_ok = self.validate_balance(transaction.sender_balance) and self.validate_balance(transaction.receiver_balance)
-        money_ok = 0 < transaction.money <= transaction.sender_balance.money
+        money_ok = 0 < transaction.amount <= transaction.sender_balance.money
         signature_ok = transaction.validate_signature()
         return balance_ok and money_ok and signature_ok
 
-    def is_pow_transaction(self, block, transaction: Transaction):
+    @staticmethod
+    def is_pow_transaction(block, transaction: Transaction):
         return transaction.receiver_balance.public_key == block.pow_key and \
                transaction.sender_balance.public_key == block.balance_info.public_key and \
                transaction.amount == POW_PAY
@@ -107,6 +111,7 @@ class BlockchainUser:
 
     def create_blockrequest(self, min_time: int, max_time: int):
         difficulty_factor = self.calc_difficulty_factor()
+        print(self.last_hash, "\n\n\n\n\n\n\n\n\n")
         new_index = self.blockchain[self.last_hash].index + 1
         prev_hash = self.last_hash
         balance_info = self.get_balance_info()

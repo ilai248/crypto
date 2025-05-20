@@ -1,3 +1,4 @@
+import base64
 import time, hashlib, json
 from typing import List
 from security import sign, verify_signed
@@ -5,8 +6,14 @@ from security import sign, verify_signed
 TRANSACTION_EXPIRATION = 100
 LOCAL_CHAIN_SIZE = TRANSACTION_EXPIRATION * 2
 
-def shash(*args):
-    return hashlib.sha256("|".join(str(arg) for arg in args).encode()).hexdigest()
+
+def shash(*args) -> bytes:
+    return hashlib.sha256("|".join(str(arg) for arg in args).encode()).digest()
+
+
+def bytes_to_string(string: bytes):
+    return base64.b64encode(string).decode("ascii")
+
 
 class BalanceInfo:
     def __init__(self, brolist, pos, money, public_key):
@@ -35,6 +42,7 @@ class BalanceInfo:
 
     def __hash__(self):
         return int(shash(self.public_key, self.money), 16)
+
 
 class Transaction:
     def __init__(self, amount, sender_balance, receiver_balance, curr_block_index, blocks_till_expire=TRANSACTION_EXPIRATION):
@@ -75,6 +83,7 @@ class Transaction:
 
     def __hash__(self):
         return int(self.compute_hash(), 16)
+
 
 class Block:
     def __init__(self, index, prev_hash, balance_info, transactions, new_users, timestamp=None, pow_pub_key=None):
@@ -125,6 +134,7 @@ class Block:
     def __hash__(self):
         return int(self.hash, 16)
 
+
 class BlockRequest_heart:
     def __init__(self, timestamp: int, public_key: bytes):
         self.timestamp: int = timestamp
@@ -132,16 +142,16 @@ class BlockRequest_heart:
         self.hash = self.compute_hash()
 
     def compute_hash(self):
-        return hashlib.sha256(f"{self.timestamp}|{self.public_key}".encode()).hexdigest()
+        return hashlib.sha256(f"{self.timestamp}|{self.public_key}".encode()).digest()
 
     def int_hash(self):
-        return int(self.hash, 16)
+        return int.from_bytes(self.hash, 'little')
 
     def to_dict(self):
         return {
             "timestamp": self.timestamp,
             "public_key": self.public_key,
-            "hash": self.hash
+            "hash": bytes_to_string(self.hash)
         }
 
     @staticmethod
@@ -150,11 +160,12 @@ class BlockRequest_heart:
             timestamp=data["timestamp"],
             public_key=data["public_key"]
         )
-        obj.hash = data["hash"]
+        obj.hash = base64.b64decode(data["hash"].encode("ascii"))
         return obj
 
     def __hash__(self):
         return int(self.hash, 16)
+
 
 class BlockRequest:
     def __init__(self, heart: BlockRequest_heart, difficulty_factor: int, roots, n, block: Block):

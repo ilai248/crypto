@@ -6,6 +6,7 @@ from colorama import init, Fore, Style
 # Initialize colorama for colorful terminal output
 init(autoreset=True)
 
+
 def start_node(node_id):
     port = 5000 + int(node_id)
     user = BlockchainUser(port, node_id)
@@ -23,6 +24,7 @@ def start_node(node_id):
         interval = user.curr_interval()
         user.create_blockrequest(user.interval_time(interval), user.interval_time(interval + 1))
         time.sleep(user.interval_time(interval + 1) - time.time())  # Wait until next interval
+
 
 def process_commands(user):
     """Process terminal commands in a separate thread."""
@@ -99,6 +101,7 @@ def process_commands(user):
             print(f"\n{Fore.YELLOW}Use 'exit' to stop the node gracefully{Style.RESET_ALL}")
         except Exception as e:
             print(f"{Fore.RED}Error processing command: {e}{Style.RESET_ALL}")
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
