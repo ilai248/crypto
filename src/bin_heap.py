@@ -25,14 +25,14 @@ class virt_bin_heap:
     """
     We need to account for a starting brolist because maybe we merged a lot in the start.
     """
-    def __init__(self, n=0, roots=[]):
+    def __init__(self, n=0, roots=None):
         self.n = n
-        self.roots = roots
+        self.roots = roots if roots is not None else []
         self.created = False
         self.brolist = None
         self.curr_root = None
         self.pos = None
-        self.my_money = None
+        self.money = None
 
     # If we want to get the root after a change we need to input n after the change to the function.
     def root_bit_by_pos(self, pos):
@@ -43,8 +43,8 @@ class virt_bin_heap:
             mask >>= 1
         return mask
 
-    def is_root(self, root_mask_bit, n):
-        return root_mask_bit & n
+    def is_root(self, root_mask_bit):
+        return root_mask_bit & self.n
     
     def get_root(self, root_idx):
         return self.roots[-root_idx - 1]
@@ -83,10 +83,10 @@ class virt_bin_heap:
         for i in range(new_lsb - prev_lsb):
             # Merge with the root corrosponding to 'i'.
             if linked:
-                self.bro_lst.append(self.roots[-1])
+                self.brolist.append(self.roots[-1])
                 self.curr_root += 1
             elif self.created and self.curr_root == i:
-                self.bro_lst.append(h)
+                self.brolist.append(h)
                 linked = True
             h = virt_bin_heap.hashes(str(h) + str(self.roots[-1]))
             bro_lst.append(self.roots[-1])
@@ -104,10 +104,12 @@ class virt_bin_heap:
         self.curr_root = lsb(self.n)
         self.created = True
 
-    def is_power_of2(self, num: int):
-        return num == (1 << self.msb(num))
+    @staticmethod
+    def is_power_of2(num: int):
+        return num == (1 << msb(num))
 
-    def calc_hash(self, data, pos, bro_list):
+    @staticmethod
+    def calc_hash(data, pos, bro_list):
         h = virt_bin_heap.hashes(str(data) + str(pos))
         for b in bro_list:
             h = virt_bin_heap.hashes(str(h) + str(b))
