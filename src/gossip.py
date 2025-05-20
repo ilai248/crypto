@@ -12,6 +12,7 @@ MULTICAST_GROUP = '224.0.0.1'
 MULTICAST_PORT = 5002
 DISCOVERY_INTERVAL = 5  # Seconds between multicast announcements
 
+
 def most_common(lst):
     if not lst:
         return None
@@ -23,6 +24,7 @@ def most_common(lst):
         elif item == most_common_hash:
             return item
     return None
+
 
 class GossipNode:
     def __init__(self, host, port, public_key_str, uid, blockchain_user):
@@ -36,6 +38,10 @@ class GossipNode:
         self.server.bind((host, port))
         self.server.listen()
         self.running = True
+
+        # assigned later
+        self.multicast_socket = None
+        self.receiver_socket = None
 
         # Start peer discovery
         self.start_multicast_discovery()
@@ -110,7 +116,9 @@ class GossipNode:
                             return
                         receiver_balance = self.user.get_balance_info()
                         curr_idx = self.user.get_last_block().index
-                        transact = Transaction(sender, receiver, amount, sender_balance, receiver_balance, curr_idx)
+                        #transact = Transaction(sender, receiver, amount, sender_balance, receiver_balance, curr_idx)
+                        # make sure patch works
+                        transact = Transaction(amount, sender_balance, receiver_balance, curr_idx)
                         self.broadcast_data("transaction_verified", transact.to_dict())
                 elif msg_type == "req_get_money":
                     sender = msg_data.get("sender", None)
@@ -123,16 +131,19 @@ class GossipNode:
                             return
                         sender_balance = self.user.get_balance_info()
                         curr_idx = self.user.get_last_block().index
-                        transact = Transaction(sender, receiver, amount, sender_balance, receiver_balance, curr_idx)
+                        #transact = Transaction(sender, receiver, amount, sender_balance, receiver_balance, curr_idx)
+                        transact = Transaction(amount, sender_balance, receiver_balance, curr_idx)
                         self.broadcast_data("transaction_verified", transact.to_dict())
                 elif msg_type == "transaction_verified":
                     self.user.on_transact_verified(Transaction.from_dict(msg_data))
                 elif msg_type == "create_block":
+                    print("Im right shut up")
                     self.user.on_block_create_req(BlockRequest.from_dict(msg_data))
+                    print("8\n\n\n\n\n")
             except Exception as e:
                 print(f"Error handling peer: {e}")
 
-    def broadcast_request(self, type, data, min_ans, interval, listener):
+    def broadcast_request(self, message_type, data, min_ans, interval, listener):
         results = []
         results_lock = threading.Lock()
         response_count = 0
@@ -144,7 +155,7 @@ class GossipNode:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.settimeout(interval)
                     s.connect((ip, port))
-                    message = json.dumps({"type": "request", "data": {"type": type, "data": data}})
+                    message = json.dumps({"type": "request", "data": {"type": message_type, "data": data}})
                     s.sendall(message.encode())
                     response_data = s.recv(65536).decode()
                     response = json.loads(response_data)
@@ -177,6 +188,7 @@ class GossipNode:
             result_event.set()
         self.request_most_likely(type, data, on_res)
         result_event.wait(timeout=timeout)
+        print(result[0], "\n\n\n\n\n\n\n\n\n")
         return result[0]
 
     def get_block(self, block_hash, listener=None):
@@ -204,10 +216,10 @@ class GossipNode:
         print("Sending request add")
         self.broadcast_data("add_user", self.public_key_str)
 
-    def broadcast_verifyTransactionRequest(self, sender, sender_balance, receiver, amount):
+    def broadcast_verifySendTransactionRequest(self, sender, sender_balance, receiver, amount):
         self.broadcast_data("req_send_money", {"sender": sender, "sender_balance": sender_balance.to_dict(), "receiver": receiver, "amount": amount})
 
-    def broadcast_verifyTransactionRequest(self, receiver, receiver_balance, sender, amount):
+    def broadcast_verifyGetTransactionRequest(self, receiver, receiver_balance, sender, amount):
         self.broadcast_data("req_get_money", {"receiver": receiver, "receiver_balance": receiver_balance.to_dict(), "sender": sender, "amount": amount})
 
     def stop(self):
