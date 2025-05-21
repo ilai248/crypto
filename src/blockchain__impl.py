@@ -4,6 +4,7 @@ from bin_heap import virt_bin_heap
 from security import get_public_key_str
 from utils import do_periodic
 import time
+import base64
 
 DEBUG = True
 
@@ -16,7 +17,7 @@ POW_PAY = 1
 genesis_block = Block(
     index=0,
     prev_hash=b"\x00"*16,
-    balance_info=BalanceInfo([], 0, 0, b"\x00"*16),
+    balance_info=BalanceInfo([], 0, 0, base64.b64encode(b"\x00"*16).decode('ascii')),
     transactions=[],
     new_users=[]
 )
@@ -29,7 +30,7 @@ class BlockchainUser:
         self.transactions = []
         self.new_users = [get_public_key_str()]
         self.blockchain = {last_block.hash: last_block}
-        self.last_hash = last_block.hash # TODO: There should be no initial last block hash
+        self.last_hash = last_block.hash  # TODO: There should be no initial last block hash
         self.curr_max_time = curr_max_time
         self.curr_best_block_req: BlockRequest or None = None
         self.valid = False # "valid" is whether we have been added to the network
